@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import type { Vault } from "./types.js";
 
 export type Hit = { path: string; title: string; snip: string };
 
@@ -181,6 +182,51 @@ export function searchNotes(db: Database.Database, query: string, limit = 8): Hi
       title: s.doc.title,
       snip: snippetAround(s.doc.body, s.firstIdx),
     }));
+}
+
+/**
+ * 双路召回 + RRF 融合：字面三层（上面的 searchNotes）+ 语义余弦（如果配置了 embedding）。
+ * RRF 只看排名不看分数尺度，无参数可调：score = Σ 1/(60+rank)。
+ * 语义路任何失败都静默降级回纯字面——检索永远可用。
+ */
+export async function hybridSearch(
+  vault: Vault,
+  db: Database.Database,
+  query: string,
+  limit = 8
+): Promise<Hit[]> {
+  const RECALL = Math.max(20, limit);
+  const literal = searchNotes(db, query, RECALL);
+  const cfg = vault.config.embedding;
+  if (!cfg) return literal.slice(0, limit);
+
+  let semantic: Hit[] = [];
+  try {
+    const { embedTexts, semanticSearch } = await import("./embedding.js");
+    const [qv] = await embedTexts(cfg, [query.trim()]);
+    semantic = semanticSearch(db, qv, RECALL);
+  } catch (err) {
+    console.error(
+      `语义检索不可用（已降级纯字面）：${err instanceof Error ? err.message : err}`
+    );
+    return literal.slice(0, limit);
+  }
+
+  const K = 60;
+  const score = new Map<string, number>();
+  const meta = new Map<string, Hit>();
+  for (const [i, h] of literal.entries()) {
+    score.set(h.path, (score.get(h.path) ?? 0) + 1 / (K + i + 1));
+    meta.set(h.path, h);
+  }
+  for (const [i, h] of semantic.entries()) {
+    score.set(h.path, (score.get(h.path) ?? 0) + 1 / (K + i + 1));
+    if (!meta.has(h.path)) meta.set(h.path, h);
+  }
+  return [...score.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([p]) => meta.get(p)!);
 }
 
 /** 无结果时给用户的提示 */

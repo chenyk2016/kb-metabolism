@@ -30,6 +30,12 @@ export function openDb(root: string): Database.Database {
       dst TEXT NOT NULL,
       PRIMARY KEY (src, dst)
     );
+    CREATE TABLE IF NOT EXISTS embeddings (
+      path TEXT PRIMARY KEY,
+      hash TEXT NOT NULL,
+      dim  INTEGER NOT NULL,
+      vec  BLOB NOT NULL
+    );
     CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
       path UNINDEXED, title, body, tokenize = 'trigram'
     );

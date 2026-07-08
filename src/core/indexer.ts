@@ -55,9 +55,11 @@ export type IndexResult = {
   notes: number;
   links: number;
   tiers: Record<string, number>;
+  /** 本次增量计算的向量数（未配置 embedding 时恒为 0） */
+  embedded: number;
 };
 
-export function runIndex(vault: Vault): IndexResult {
+export async function runIndex(vault: Vault): Promise<IndexResult> {
   const { root, config } = vault;
   const isManaged = picomatch(config.managed, { ignore: config.exclude });
   const isExcluded = picomatch(config.exclude);
@@ -158,6 +160,20 @@ export function runIndex(vault: Vault): IndexResult {
     tiers[r.t] = r.c;
   }
   const linkCount = (db.prepare("SELECT COUNT(*) AS c FROM links").get() as { c: number }).c;
+
+  // 语义层增量同步；失败只降级警告，不影响索引主体
+  let embedded = 0;
+  if (vault.config.embedding) {
+    try {
+      const { syncEmbeddings } = await import("./embedding.js");
+      embedded = (await syncEmbeddings(vault, db)).embedded;
+    } catch (err) {
+      console.error(
+        `向量同步失败（已跳过，检索降级纯字面）：${err instanceof Error ? err.message : err}`
+      );
+    }
+  }
+
   db.close();
-  return { notes: managed.length, links: linkCount, tiers };
+  return { notes: managed.length, links: linkCount, tiers, embedded };
 }

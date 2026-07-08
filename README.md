@@ -81,6 +81,20 @@ claude mcp add --scope user kb -- kb serve --vault ~/notes
 
 vault 自包含：配置、信号日志、报告都在 `.kb/` 里，跟着目录走。只有可重建的 `kb.db` 被 gitignore。
 
+### 语义检索（可选增强）
+
+字面检索跨不过词汇鸿沟（搜"电话"找不到只写"手机号"的笔记）。在 config 里加一节 `embedding` 即可开启**字面 + 语义双路召回、RRF 融合**：
+
+```jsonc
+"embedding": {
+  "baseUrl": "https://api.siliconflow.cn/v1",   // 任何 OpenAI 兼容端点：硅基流动/Voyage/OpenAI/Ollama
+  "model": "BAAI/bge-m3",
+  "apiKeyEnv": "KB_EMBEDDING_API_KEY"            // 存环境变量名——config 进 git，key 永不落盘
+}
+```
+
+然后 `export KB_EMBEDDING_API_KEY=sk-xxx` 并跑一次 `kb index`（向量按内容 hash 增量计算，没改过的笔记不重算）。查询时字面三层与语义余弦各取 top20，按 RRF（`Σ 1/(60+排名)`）融合排序。**不配置或 API 不可用时自动降级纯字面**——语义只是增强，检索永远可用。个人库规模下语义匹配走 JS 全量余弦，无需任何向量数据库。
+
 几个容易踩的点：
 
 - **检索直接用自然语言**，不需要学任何语法。三层逐级降级：整串连续命中 > 空格显式分词全命中 > 自动分词（中文按二字词切分）按相关度排序——组合词如"业主服务测试账号"即使从未连续出现过，也会按覆盖度和词权重排出相关笔记。

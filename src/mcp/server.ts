@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import picomatch from "picomatch";
 import { openDb } from "../core/db.js";
-import { searchNotes, similarNotes, noResultHint } from "../core/search.js";
+import { hybridSearch, similarNotes, noResultHint } from "../core/search.js";
 import { appendSignal } from "../core/signals.js";
 import { getStats, formatStats } from "../core/stats.js";
 import { addNote } from "../core/capture.js";
@@ -39,7 +39,7 @@ export function buildServer(vault: Vault): McpServer {
     },
     async ({ query, limit }) => {
       const db = openDb(vault.root);
-      const hits = searchNotes(db, query, limit ?? 8);
+      const hits = await hybridSearch(vault, db, query, limit ?? 8);
       db.close();
       appendSignal(vault.root, { tool: "kb_search", query });
       const text =
@@ -127,7 +127,7 @@ export function buildServer(vault: Vault): McpServer {
           useWhen: use_when,
           dir,
         });
-        runIndex(vault);
+        await runIndex(vault);
         const note = use_when
           ? `已入 ${tier ?? "L1"} 层`
           : `未提供 use_when，已按入口税进 inbox 层（30 天后过期，除非升级）`;

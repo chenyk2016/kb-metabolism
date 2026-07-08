@@ -24,7 +24,7 @@ function isGitRepo(root: string): boolean {
 export type ExecuteResult = { moved: string[]; skipped: string[]; committed: boolean };
 
 /** Move approved (checked) kill-list entries to _graveyard/, then reindex. */
-export function executeReport(vault: Vault, reportFile: string): ExecuteResult {
+export async function executeReport(vault: Vault, reportFile: string): Promise<ExecuteResult> {
   const { root } = vault;
   const report = fs.readFileSync(path.resolve(reportFile), "utf8");
 
@@ -83,6 +83,6 @@ export function executeReport(vault: Vault, reportFile: string): ExecuteResult {
     }
   }
 
-  runIndex(vault);
+  await runIndex(vault);
   return { moved, skipped, committed };
 }

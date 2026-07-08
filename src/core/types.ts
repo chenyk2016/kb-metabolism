@@ -1,5 +1,14 @@
 export type JudgmentProviderKind = "human" | "anthropic" | "agent";
 
+export type EmbeddingConfig = {
+  /** 任何 OpenAI 兼容的 /v1 端点（硅基流动、Voyage、OpenAI、Ollama…） */
+  baseUrl: string;
+  model: string;
+  /** 存放 API key 的环境变量名（config 会进 git，key 永不落盘），默认 KB_EMBEDDING_API_KEY */
+  apiKeyEnv?: string;
+  dimensions?: number;
+};
+
 export type VaultConfig = {
   /** globs (relative to vault root) of managed notes */
   managed: string[];
@@ -16,6 +25,8 @@ export type VaultConfig = {
     /** digest proposals deserve the top model */
     digestModel: string;
   };
+  /** 语义检索插件；不配置 = 纯字面检索，零依赖不变量不破 */
+  embedding?: EmbeddingConfig;
 };
 
 export type Vault = {

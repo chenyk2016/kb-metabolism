@@ -7,7 +7,7 @@ import Database from "better-sqlite3";
 import { initVault, loadVault, kbDir, signalLogPath } from "./core/config.js";
 import { runIndex } from "./core/indexer.js";
 import { openDb } from "./core/db.js";
-import { searchNotes, noResultHint } from "./core/search.js";
+import { hybridSearch, noResultHint } from "./core/search.js";
 import { appendSignal } from "./core/signals.js";
 import { runCoroner } from "./core/coroner.js";
 import { executeReport } from "./core/executor.js";
@@ -51,9 +51,9 @@ function untriagedNotes(v: Vault, limit?: number): UntriagedNote[] {
   });
 }
 
-function applyDecisions(v: Vault, decisions: TierDecision[]): void {
+async function applyDecisions(v: Vault, decisions: TierDecision[]): Promise<void> {
   for (const d of decisions) applyDecision(v, d);
-  const r = runIndex(v);
+  const r = await runIndex(v);
   console.log(`\n已应用 ${decisions.length} 条决定；当前层级分布：`, r.tiers);
 }
 
@@ -63,7 +63,7 @@ program
   .option("--managed <globs...>", "受管理笔记的 glob 范围", ["**/*.md"])
   .option("--capture-dir <dir>", "`kb add` 写入的目录", ".")
   .option("--git", "若不在 git 仓库中则 git init（处决的反悔按钮）")
-  .action((opts) => {
+  .action(async (opts) => {
     const root = path.resolve(program.opts().vault ?? process.cwd());
     if (fs.existsSync(path.join(kbDir(root), "config.json"))) {
       console.error(`已经是知识库了：${root}`);
@@ -88,7 +88,7 @@ program
         console.log("已初始化 git 仓库（处决的反悔按钮）");
       }
     }
-    const r = runIndex(v);
+    const r = await runIndex(v);
     console.log(`知识库就绪：${root}`);
     console.log(`管理范围：${opts.managed.join(", ")}——${r.notes} 条笔记，${r.links} 条反链`);
     console.log(`下一步：kb triage 分诊 · kb serve 开检索门（MCP）· kb digest 每周消化`);
@@ -96,10 +96,11 @@ program
 
 program
   .command("index")
-  .description("重建派生索引（笔记、反链、全文检索）")
-  .action(() => {
-    const r = runIndex(vault());
+  .description("重建派生索引（笔记、反链、全文检索、增量向量）")
+  .action(async () => {
+    const r = await runIndex(vault());
     console.log(`索引完成：${r.notes} 条笔记，${r.links} 条反链`);
+    if (r.embedded > 0) console.log(`向量增量：${r.embedded} 条`);
     console.log("层级分布：", r.tiers);
   });
 
@@ -107,10 +108,10 @@ program
   .command("search <query>")
   .description("走门检索（记一条使用信号）")
   .option("-n, --limit <n>", "最多返回条数", "8")
-  .action((query, opts) => {
+  .action(async (query, opts) => {
     const v = vault();
     const db = openDb(v.root);
-    const hits = searchNotes(db, query, parseInt(opts.limit, 10));
+    const hits = await hybridSearch(v, db, query, parseInt(opts.limit, 10));
     db.close();
     appendSignal(v.root, { tool: "kb_search", query });
     if (hits.length === 0) console.log(`无结果：${query}\n${noResultHint(query)}`);
@@ -159,7 +160,7 @@ program
       useWhen: opts.useWhen,
       dir: opts.dir,
     });
-    runIndex(v);
+    await runIndex(v);
     console.log(`已添加：${rel}`);
   });
 
@@ -171,7 +172,7 @@ program
   .option("-y, --yes", "LLM 提案不经确认直接应用")
   .action(async (opts) => {
     const v = vault();
-    runIndex(v);
+    await runIndex(v);
     const notes = untriagedNotes(v, opts.limit ? parseInt(opts.limit, 10) : undefined);
     if (notes.length === 0) {
       console.log("没有未分诊的笔记。代谢健康。");
@@ -191,13 +192,13 @@ program
         console.log(`- ${d.path} → ${d.tier}${d.useWhen ? `（${d.useWhen}）` : ""} — ${d.reason ?? ""}`);
       }
       const ok = opts.yes || (await confirm(`应用这 ${decisions.length} 条提案？`));
-      if (ok) applyDecisions(v, decisions);
+      if (ok) await applyDecisions(v, decisions);
       else console.log("未应用任何提案。");
       return;
     }
     // human（默认）
     const decisions = await humanTriage(notes);
-    if (decisions.length > 0) applyDecisions(v, decisions);
+    if (decisions.length > 0) await applyDecisions(v, decisions);
     else console.log("未应用任何决定。");
   });
 
@@ -208,7 +209,7 @@ program
   .option("--emit", "输出给 agent 的审查任务提示")
   .action(async (opts) => {
     const v = vault();
-    runIndex(v);
+    await runIndex(v);
     const { report, candidates } = runCoroner(v);
     console.log(`处决名单：${candidates.length} 条候选 → ${report}`);
 
@@ -234,9 +235,9 @@ program
 program
   .command("execute <report>")
   .description("执行名单中已勾选的条目（git mv 到 _graveyard/，可反悔）")
-  .action((report) => {
+  .action(async (report) => {
     const v = vault();
-    const r = executeReport(v, report);
+    const r = await executeReport(v, report);
     if (r.moved.length === 0 && r.skipped.length === 0) {
       console.log("没有勾选任何条目——无事发生。");
       return;
