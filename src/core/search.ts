@@ -73,8 +73,18 @@ function snippetAround(body: string, idx: number): string {
   return (start > 0 ? "…" : "") + body.slice(start, idx + 60).replace(/\s+/g, " ");
 }
 
-/** 第 3 层：自动分词 + 全库评分排序 */
-function rankedSearch(db: Database.Database, query: string, limit: number): Hit[] {
+type Ranked = {
+  doc: Doc;
+  score: number;
+  /** 命中数 / 库内存在的单元数——检索排序用 */
+  coverage: number;
+  /** 命中数 / 原始单元总数——查重用：新内容有多少已在这篇旧笔记里 */
+  rawCoverage: number;
+  firstIdx: number;
+};
+
+/** 自动分词 + 全库评分（第 3 层检索与 kb_add 查重共用） */
+function rankAll(db: Database.Database, query: string): Ranked[] {
   const units = queryUnits(query);
   if (units.length === 0) return [];
 
@@ -97,7 +107,7 @@ function rankedSearch(db: Database.Database, query: string, limit: number): Hit[
   const live = [...df.keys()];
   if (live.length === 0) return [];
 
-  const scored: Array<{ doc: Doc; score: number; firstIdx: number }> = [];
+  const scored: Ranked[] = [];
   for (const d of lowered) {
     let score = 0;
     let hits = 0;
@@ -116,15 +126,41 @@ function rankedSearch(db: Database.Database, query: string, limit: number): Hit[
     }
     if (hits === 0) continue;
     const coverage = hits / live.length;
-    scored.push({ doc: d.doc, score: score * (0.5 + coverage), firstIdx });
+    scored.push({
+      doc: d.doc,
+      score: score * (0.5 + coverage),
+      coverage,
+      rawCoverage: hits / units.length,
+      firstIdx,
+    });
   }
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit).map((s) => ({
-    path: s.doc.path,
-    title: s.doc.title,
-    snip: snippetAround(s.doc.body, s.firstIdx),
-  }));
+  return scored;
+}
+
+export type Similar = { path: string; title: string; snip: string; coverage: number };
+
+/**
+ * kb_add 的查重探测：标题+首段的检索单元有过半出现在同一篇旧笔记里，
+ * 视为疑似同主题。系统只递证据，"是否合并"的判断留给调用方（agent/人）。
+ */
+export function similarNotes(
+  db: Database.Database,
+  text: string,
+  limit = 3,
+  minCoverage = 0.5
+): Similar[] {
+  return rankAll(db, text)
+    .filter((r) => r.rawCoverage >= minCoverage)
+    .sort((a, b) => b.rawCoverage - a.rawCoverage)
+    .slice(0, limit)
+    .map((r) => ({
+      path: r.doc.path,
+      title: r.doc.title,
+      snip: snippetAround(r.doc.body, r.firstIdx),
+      coverage: r.rawCoverage,
+    }));
 }
 
 export function searchNotes(db: Database.Database, query: string, limit = 8): Hit[] {
@@ -138,7 +174,13 @@ export function searchNotes(db: Database.Database, query: string, limit = 8): Hi
   if (rows.length > 0) return rows;
 
   // 第 3 层：自然语言降级——自动分词 + 评分排序
-  return rankedSearch(db, q, limit);
+  return rankAll(db, q)
+    .slice(0, limit)
+    .map((s) => ({
+      path: s.doc.path,
+      title: s.doc.title,
+      snip: snippetAround(s.doc.body, s.firstIdx),
+    }));
 }
 
 /** 无结果时给用户的提示 */

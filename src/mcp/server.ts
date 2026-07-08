@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import picomatch from "picomatch";
 import { openDb } from "../core/db.js";
-import { searchNotes, noResultHint } from "../core/search.js";
+import { searchNotes, similarNotes, noResultHint } from "../core/search.js";
 import { appendSignal } from "../core/signals.js";
 import { getStats, formatStats } from "../core/stats.js";
 import { addNote } from "../core/capture.js";
@@ -70,7 +70,7 @@ export function buildServer(vault: Vault): McpServer {
     "kb_add",
     {
       description:
-        "捕捉新笔记进知识库，入口税由系统强制执行：不给 use_when（什么时候会再用到）只能进 inbox 层并在 30 天后过期；给了 use_when 默认进 L1。编辑已有笔记请直接改文件（mtime/git 天然记账），删除永远走处决名单由人审批——本工具只管新增。",
+        "捕捉新笔记进知识库。两道税由系统强制执行：入口税——不给 use_when（什么时候会再用到）只能进 inbox 层并在 30 天后过期；查重税——发现疑似同主题的已有笔记时不会写入，而是返回候选，请先 kb_read 查看并优先编辑该文件补充（一个主题一篇笔记），确认是新主题再带 force=true 重新调用。编辑已有笔记直接改文件，删除永远走处决名单由人审批。",
       inputSchema: {
         title: z.string().describe("笔记标题"),
         content: z.string().optional().describe("笔记正文（Markdown）"),
@@ -80,10 +80,36 @@ export function buildServer(vault: Vault): McpServer {
           .describe("层级；L0/L1 必须同时提供 use_when，否则会被拒绝"),
         use_when: z.string().optional().describe("一句话：什么时候会再用到"),
         dir: z.string().optional().describe("写入的子目录，默认为配置的 captureDir"),
+        force: z
+          .boolean()
+          .optional()
+          .describe("跳过查重强制新增（仅在确认与已有笔记不是同一主题后使用）"),
       },
     },
-    async ({ title, content, tier, use_when, dir }) => {
+    async ({ title, content, tier, use_when, dir, force }) => {
       try {
+        if (!force) {
+          const db = openDb(vault.root);
+          const probe = `${title} ${(content ?? "").slice(0, 100)}`;
+          const similar = similarNotes(db, probe, 3, 0.5);
+          db.close();
+          if (similar.length > 0) {
+            const list = similar
+              .map(
+                (s) =>
+                  `- ${s.path}（${s.title}，相似度 ${(s.coverage * 100).toFixed(0)}%）\n  ${s.snip}`
+              )
+              .join("\n");
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `未写入——发现 ${similar.length} 篇疑似同主题的已有笔记：\n${list}\n\n请先 kb_read 查看：属于同一主题就直接编辑该文件补充（一个主题一篇笔记）；确认是新主题，再带 force=true 重新调用。`,
+                },
+              ],
+            };
+          }
+        }
         const rel = addNote(vault, {
           title,
           content: content ?? "",
