@@ -1,47 +1,121 @@
-# kb-metabolism 知识代谢系统
+# kb-metabolism
 
-> 文件为唯一真相 + 一道带日志的检索门 + 定时作业 + 人当法官。
-> 协议：[docs/protocol.md](docs/protocol.md) · 规格：[docs/specs/phase-0-1-2.md](docs/specs/phase-0-1-2.md)
+**A knowledge base that knows how to forget.**
 
-管理范围（首期）：`~/.openclaw/shared/notes/content/00-my-inbox`
+[中文文档 →](README.zh-CN.md)
 
-## 组件
+Most personal knowledge bases only have an *in*. Capture is free in the AI era, so they grow until nobody can read them and nobody dares clean them up. kb-metabolism adds the two missing organs — **digestion** (turning material into restatable judgments) and **excretion** (retiring notes that lost their purpose) — on top of the files you already have.
 
-| 命令 | 职责 |
+> Health isn't how many notes you keep. It's that every note has a stated future use. **Expire by default; renew by being used.**
+
+## How it works
+
+```
+capture ──▶ triage ──▶ live in tiers ──▶ decay ──▶ trial ──▶ graveyard
+  kb add    kb triage   kb search/read    kb digest  human    kb execute
+            (entry tax) (logged signals)  (coroner)  checks    (git mv,
+                                                     boxes     reversible)
+```
+
+- **Files are the only truth.** Plain Markdown + YAML frontmatter. The index (SQLite + FTS5, Chinese-friendly trigram search) is derived and disposable. Uninstall the tool and your notes are untouched.
+- **One retrieval gate, always logged.** `kb search` / `kb read` — from the CLI or from any agent via MCP — append to `.kb/access.log.jsonl`. That log is the metabolic signal: reads keep notes alive.
+- **Entry tax.** A note that can't answer *"when will I need this again?"* (`kb_use_when`) only gets into the `inbox` tier, where it expires in 30 days unless promoted.
+- **Tiers.** `L0` core (hard cap 100 — one restatable judgment each), `L1` reference (findable is enough), `inbox` (expiring), `_graveyard/` (buried, recoverable via git).
+- **The coroner proposes, the human judges.** `kb digest` lists notes with zero signals (no reads, no backlinks, untouched past the decay window) as a checkbox kill list. Nothing is ever deleted by AI — you check the boxes, `kb execute` moves them to the graveyard with `git mv`.
+- **Judgment is a plugin, not a foundation.** Every deterministic part (expiry, decay, search, burial) works with **no LLM and no API key**. Three judgment providers:
+  - `human` (default) — interactive triage in the terminal, zero dependencies
+  - `anthropic` — bring your own `ANTHROPIC_API_KEY`; a cheap model triages, a top model writes digest proposals (still just proposals)
+  - `agent` — no API calls; `--emit` prints a self-contained prompt for whatever agent is connected (Claude Code, anything speaking MCP)
+
+## Quick start
+
+```bash
+npm install -g kb-metabolism
+
+cd ~/notes            # any folder of markdown
+kb init --git         # .kb/ config + index + graveyard; git = your undo button
+kb triage             # assign tiers interactively (or via LLM/agent)
+kb search "fts5"      # retrieval through the gate — logs a signal
+kb digest             # weekly: coroner writes the kill list
+# review the report, check [x] what you approve, then:
+kb execute .kb/reports/kill-list-2026-07-08.md
+```
+
+Capture with the tax built in:
+
+```bash
+kb add "SQLite Chinese search" --use-when "next time I pick an FTS engine"   # → L1
+echo "some one-off research" | kb add "temp findings"                        # → inbox, expires in 30d
+```
+
+## Connect your agent (MCP)
+
+The gate speaks Model Context Protocol, so every agent lookup leaves a signal too:
+
+```bash
+claude mcp add --scope user kb -- kb serve --vault ~/notes
+```
+
+Tools exposed: `kb_search`, `kb_read`, `kb_stats`. Tell your agent: *always retrieve through the gate* — bypassing it grants every note immunity.
+
+## Configuration (`.kb/config.json`)
+
+```jsonc
+{
+  "managed": ["**/*.md"],          // which notes are governed (globs)
+  "exclude": ["_graveyard/**"],
+  "captureDir": ".",               // where `kb add` writes
+  "l0Cap": 100,
+  "inboxDays": 30,
+  "decayDays": 90,
+  "judgment": {
+    "provider": "human",           // human | anthropic | agent
+    "triageModel": "claude-haiku-4-5",
+    "digestModel": "claude-opus-4-8"
+  }
+}
+```
+
+The vault is self-contained: config, signal log, and reports live in `.kb/` and travel with the folder. Only `kb.db` (rebuildable) is gitignored.
+
+## Commands
+
+| Command | What it does |
 |---|---|
-| `npm run index` | 索引器：笔记+反链 → SQLite（access_log 永不清空） |
-| `npm run server` | kb-MCP 检索门（stdio）：kb_search / kb_read / kb_stats，自动记访问日志 |
-| `npm run coroner` | 法医：零信号判定 → `reports/kill-list-*.md` |
-| `npm run execute -- <report>` | 执行勾选的处决（git mv 到 `_graveyard/`）并重建索引 |
-| `npm run smoke` | MCP 端到端冒烟测试 |
+| `kb init [--managed <globs>] [--git]` | make any directory a vault |
+| `kb add [title] [-w use-when] [-t tier]` | capture (entry tax applies) |
+| `kb triage [--emit] [-y]` | tier untriaged notes via the configured provider |
+| `kb search <q>` / `kb read <path>` | retrieval gate (logs signals) |
+| `kb digest [--emit] [--no-llm]` | reindex + coroner + optional LLM proposals |
+| `kb execute <report>` | bury the checked entries (reversible) |
+| `kb stats` | vault health |
+| `kb serve` | MCP gate over stdio |
+| `kb index` | rebuild the derived index |
+| `kb migrate --from <old.db>` | import legacy access-log signals |
 
-## MCP 注册（已完成，user 级）
+## Weekly cadence
 
-```bash
-claude mcp add --scope user kb -- node ~/.openclaw/shared/projects/kb-metabolism/dist/server.js
+Five minutes a week: run `kb digest`, read the report, check boxes, `kb execute`. Cron it if you like:
+
+```
+30 9 * * 1 kb --vault ~/notes digest
 ```
 
-## 两个作业 Skill（已装到 ~/.openclaw/shared/skills/）
+## Design invariants
 
-- `/kb-triage` — 分诊：给未分诊笔记定层写 frontmatter
-- `/kb-weekly-digest` — 每周消化：法医名单 + 合并/升级提案 → 人勾选审批
+1. Files + git are the truth; everything in SQLite is disposable.
+2. The access log is the only non-reproducible data — it lives as an append-only JSONL file inside the vault and survives any rebuild.
+3. All retrieval goes through the gate; no log, no decay verdicts.
+4. Judgment is allocated by value density: cheap model for triage, top model for digest, human for the verdict.
+5. AI proposes, the human judges, git makes every burial reversible.
+6. The system must be complete with zero LLM — intelligence only makes it cheaper.
+7. The vault is self-contained: copy the folder, take the whole system with you.
 
-## 每周 cron（默认关闭，涉及模型调用成本，需手动启用）
-
-```bash
-# 方式一：crontab（每周一 09:30）
-30 9 * * 1 cd ~/.openclaw/shared/projects/kb-metabolism && npm run index --silent && npm run coroner --silent && claude -p "执行 kb-weekly-digest 技能流程" --permission-mode acceptEdits
-
-# 方式二：OpenClaw cron，见 openclaw-config
-```
-
-## 信号从今天开始积累
-
-衰减判定依赖检索门的访问日志，日志从检索门上线之日（2026-07-07）起算。
-前 90 天法医主要依据 git 修改时间 + 反链 + inbox 过期。**查知识请一律走 kb_search/kb_read，别绕过门。**
-
-## 修改代码后
+## Development
 
 ```bash
-npm run build && npm run smoke
+npm install && npm run build
+KB_SMOKE_VAULT=/path/to/a/vault npm run smoke   # MCP end-to-end test
 ```
+
+MIT © qizai

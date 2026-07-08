@@ -1,15 +1,24 @@
-/** 冒烟测试：以 MCP client 连自己的 server，走一遍 search→read→stats，验证日志落库 */
+/** MCP smoke test: connect a client to `kb serve`, run search→read→stats, verify signals. */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import path from "node:path";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import Database from "better-sqlite3";
-import { DB_PATH } from "./config.js";
 
+const vaultRoot = process.env.KB_SMOKE_VAULT;
+if (!vaultRoot) {
+  console.error("set KB_SMOKE_VAULT to a vault root (a dir with .kb/config.json)");
+  process.exit(1);
+}
 const here = path.dirname(fileURLToPath(import.meta.url));
+const logFile = path.join(vaultRoot, ".kb", "access.log.jsonl");
+const linesBefore = fs.existsSync(logFile)
+  ? fs.readFileSync(logFile, "utf8").split("\n").filter(Boolean).length
+  : 0;
+
 const transport = new StdioClientTransport({
   command: process.execPath,
-  args: [path.join(here, "server.js")],
+  args: [path.join(here, "cli.js"), "serve", "--vault", vaultRoot],
 });
 const client = new Client({ name: "smoke", version: "0.0.1" });
 await client.connect(transport);
@@ -17,18 +26,16 @@ await client.connect(transport);
 const tools = await client.listTools();
 console.log("tools:", tools.tools.map((t) => t.name).join(", "));
 
-const search = await client.callTool({
-  name: "kb_search",
-  arguments: { query: "browser-use", limit: 3 },
-});
+const query = process.env.KB_SMOKE_QUERY ?? "test";
+const search = await client.callTool({ name: "kb_search", arguments: { query, limit: 3 } });
 const searchText = (search.content as Array<{ type: string; text: string }>)[0].text;
-console.log("--- kb_search(browser-use) ---\n" + searchText);
+console.log(`--- kb_search(${query}) ---\n${searchText}`);
 
 const firstPath = searchText.match(/^- (.+)$/m)?.[1];
 if (firstPath) {
   const read = await client.callTool({ name: "kb_read", arguments: { path: firstPath } });
   const body = (read.content as Array<{ type: string; text: string }>)[0].text;
-  console.log(`--- kb_read(${firstPath}) → ${body.length} 字符 ---`);
+  console.log(`--- kb_read(${firstPath}) → ${body.length} chars ---`);
 }
 
 const stats = await client.callTool({ name: "kb_stats", arguments: {} });
@@ -36,12 +43,10 @@ console.log("--- kb_stats ---\n" + (stats.content as Array<{ type: string; text:
 
 await client.close();
 
-const db = new Database(DB_PATH, { readonly: true });
-const logs = db
-  .prepare("SELECT tool, query, path FROM access_log ORDER BY id DESC LIMIT 5")
-  .all();
-console.log("--- access_log 最近 5 条 ---");
-for (const l of logs as Array<{ tool: string; query: string | null; path: string | null }>) {
-  console.log(`${l.tool} ${l.query ?? ""} ${l.path ?? ""}`);
+const linesAfter = fs.readFileSync(logFile, "utf8").split("\n").filter(Boolean).length;
+console.log(`--- signals: ${linesBefore} → ${linesAfter} ---`);
+if (linesAfter <= linesBefore) {
+  console.error("FAIL: no signals were logged");
+  process.exit(1);
 }
-db.close();
+console.log("smoke OK");

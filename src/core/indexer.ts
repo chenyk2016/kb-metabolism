@@ -2,12 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import matter from "gray-matter";
+import picomatch from "picomatch";
 import { openDb } from "./db.js";
-import { VAULT_ROOT, MANAGED_DIR, GRAVEYARD_DIR } from "./config.js";
+import type { Vault } from "./types.js";
 
-const SKIP_DIRS = new Set([".obsidian", ".git", "node_modules", "_graveyard", "assets"]);
+const ALWAYS_SKIP = new Set([".kb", ".git", ".obsidian", "node_modules"]);
 
-function* walkMd(dir: string): Generator<string> {
+function* walkMd(dir: string, root: string): Generator<string> {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -16,10 +17,10 @@ function* walkMd(dir: string): Generator<string> {
   }
   for (const e of entries) {
     if (e.name.startsWith(".")) continue;
+    if (ALWAYS_SKIP.has(e.name)) continue;
     const full = path.join(dir, e.name);
     if (e.isDirectory()) {
-      if (SKIP_DIRS.has(e.name)) continue;
-      yield* walkMd(full);
+      yield* walkMd(full, root);
     } else if (e.isFile() && e.name.endsWith(".md")) {
       yield full;
     }
@@ -33,11 +34,10 @@ function extractTitle(fm: Record<string, unknown>, body: string, file: string): 
   return path.basename(file, ".md");
 }
 
-/** 提取 [[wiki链接]] 与 markdown 链接的目标名（basename，不含扩展名） */
+/** targets of [[wiki links]] and markdown links, as basenames without .md */
 function extractLinkTargets(body: string): string[] {
   const targets = new Set<string>();
   for (const m of body.matchAll(/\[\[([^\]]+)\]\]/g)) {
-    // [[名字#标题|别名]] → 名字
     const name = m[1].split("#")[0].split("|")[0].trim();
     if (name) targets.add(path.basename(name, ".md"));
   }
@@ -51,8 +51,16 @@ function extractLinkTargets(body: string): string[] {
   return [...targets];
 }
 
-export function runIndex(): { notes: number; links: number; tiers: Record<string, number> } {
-  const db = openDb();
+export type IndexResult = {
+  notes: number;
+  links: number;
+  tiers: Record<string, number>;
+};
+
+export function runIndex(vault: Vault): IndexResult {
+  const { root, config } = vault;
+  const isManaged = picomatch(config.managed, { ignore: config.exclude });
+  const isExcluded = picomatch(config.exclude);
 
   type Managed = {
     rel: string;
@@ -68,7 +76,13 @@ export function runIndex(): { notes: number; links: number; tiers: Record<string
   };
 
   const managed: Managed[] = [];
-  for (const file of walkMd(MANAGED_DIR)) {
+  const allFiles: string[] = [];
+  for (const file of walkMd(root, root)) {
+    const rel = path.relative(root, file);
+    if (isExcluded(rel)) continue;
+    allFiles.push(file);
+    if (!isManaged(rel)) continue;
+
     const raw = fs.readFileSync(file, "utf8");
     let fm: Record<string, unknown> = {};
     let body = raw;
@@ -77,7 +91,7 @@ export function runIndex(): { notes: number; links: number; tiers: Record<string
       fm = parsed.data ?? {};
       body = parsed.content;
     } catch {
-      // frontmatter 解析失败按无 frontmatter 处理
+      // broken frontmatter is treated as no frontmatter
     }
     const stat = fs.statSync(file);
     const str = (v: unknown) => {
@@ -86,7 +100,7 @@ export function runIndex(): { notes: number; links: number; tiers: Record<string
       return String(v);
     };
     managed.push({
-      rel: path.relative(VAULT_ROOT, file),
+      rel,
       title: extractTitle(fm, body, file),
       tier: str(fm.kb_tier),
       use_when: str(fm.kb_use_when),
@@ -99,14 +113,14 @@ export function runIndex(): { notes: number; links: number; tiers: Record<string
     });
   }
 
-  // basename → 被管理笔记路径（用于反链解析）
   const byBasename = new Map<string, string>();
   for (const n of managed) byBasename.set(path.basename(n.rel, ".md"), n.rel);
 
-  // 全 vault 扫反链（daily 等目录引用 inbox 笔记也是使用信号）
+  // backlink scan covers the whole vault — a daily note referencing a managed
+  // note counts as a usage signal
   const linkRows: Array<{ src: string; dst: string }> = [];
-  for (const file of walkMd(VAULT_ROOT)) {
-    const rel = path.relative(VAULT_ROOT, file);
+  for (const file of allFiles) {
+    const rel = path.relative(root, file);
     const raw = fs.readFileSync(file, "utf8");
     for (const target of extractLinkTargets(raw)) {
       const dst = byBasename.get(target);
@@ -114,6 +128,7 @@ export function runIndex(): { notes: number; links: number; tiers: Record<string
     }
   }
 
+  const db = openDb(root);
   const rebuild = db.transaction(() => {
     db.prepare("DELETE FROM notes").run();
     db.prepare("DELETE FROM links").run();
@@ -138,19 +153,11 @@ export function runIndex(): { notes: number; links: number; tiers: Record<string
 
   const tiers: Record<string, number> = {};
   for (const r of db
-    .prepare("SELECT COALESCE(tier, '未分诊') AS t, COUNT(*) AS c FROM notes GROUP BY t")
+    .prepare("SELECT COALESCE(tier, 'untriaged') AS t, COUNT(*) AS c FROM notes GROUP BY t")
     .all() as Array<{ t: string; c: number }>) {
     tiers[r.t] = r.c;
   }
   const linkCount = (db.prepare("SELECT COUNT(*) AS c FROM links").get() as { c: number }).c;
   db.close();
   return { notes: managed.length, links: linkCount, tiers };
-}
-
-const isMain = process.argv[1] && import.meta.url.endsWith(path.basename(process.argv[1]));
-if (isMain) {
-  fs.mkdirSync(GRAVEYARD_DIR, { recursive: true });
-  const r = runIndex();
-  console.log(`索引完成：${r.notes} 条笔记，${r.links} 条反链`);
-  console.log("层级分布：", r.tiers);
 }

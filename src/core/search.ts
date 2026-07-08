@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 
 export type Hit = { path: string; title: string; snip: string };
 
-/** hybrid：≥3 字符走 FTS5 trigram，否则/无结果时 LIKE 兜底 */
+/** hybrid: FTS5 trigram for queries ≥3 chars, LIKE fallback otherwise */
 export function searchNotes(db: Database.Database, query: string, limit = 8): Hit[] {
   const q = query.trim();
   if (!q) return [];
