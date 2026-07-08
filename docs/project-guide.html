@@ -372,10 +372,10 @@
     <h1>让知识库学会遗忘</h1>
     <p class="thesis">知识库的健康度不看存了多少条，看每一条都有明确的未来用途。<strong>默认过期，主动续期</strong>——文件为真相，一道带日志的门，定时作业提案，人当法官。</p>
     <div class="chips">
-      <span class="chip">v0.1.0 · <b>2026-07-07 上线</b></span>
-      <span class="chip">管理范围 <b>00-my-inbox</b></span>
-      <span class="chip">当前 <b>39 条笔记 · 23 条反链</b></span>
-      <span class="chip">Node 22 + TS · SQLite FTS5 · MCP</span>
+      <span class="chip">v0.2.0 · <b>已开源</b> · MIT</span>
+      <span class="chip"><b>github.com/chenyk2016/kb-metabolism</b></span>
+      <span class="chip">任意目录 <b>kb init</b> 即成知识库</span>
+      <span class="chip">零 LLM 可用 · Node 20+ · SQLite FTS5 · MCP</span>
     </div>
   </header>
 
@@ -509,20 +509,23 @@
     <div class="tbl-wrap">
       <table>
         <tr><th>命令</th><th>职责</th></tr>
-        <tr><td><code>npm run index</code></td><td>索引器：笔记 + 反链 → SQLite（39 条 · 23 反链）</td></tr>
-        <tr><td><code>npm run coroner</code></td><td>法医：零信号判定 → <code>reports/kill-list-*.md</code></td></tr>
-        <tr><td><code>npm run execute -- &lt;report&gt;</code></td><td>处决勾选项 → git mv 进墓地 → 重建索引</td></tr>
-        <tr><td><code>npm run build &amp;&amp; npm run smoke</code></td><td>改代码后：编译 + MCP 端到端冒烟</td></tr>
-        <tr><td><code>/kb-triage</code> · <code>/kb-weekly-digest</code></td><td>两个作业 skill（已装入 ~/.openclaw/shared/skills/）</td></tr>
+        <tr><td><code>kb init [--git]</code></td><td>任意目录变成知识库（.kb/ 配置 + 索引 + 墓地）</td></tr>
+        <tr><td><code>kb add [-w 何时再用]</code></td><td>捕捉：不给 use-when 自动进 inbox + 30 天过期</td></tr>
+        <tr><td><code>kb triage [--emit]</code></td><td>分诊：human 交互 / anthropic 提案 / agent 出题</td></tr>
+        <tr><td><code>kb search</code> · <code>kb read</code></td><td>CLI 检索门——人肉查询同样记信号</td></tr>
+        <tr><td><code>kb digest</code></td><td>每周消化：索引 + 法医 + 可选 LLM 提案 → 报告</td></tr>
+        <tr><td><code>kb execute &lt;report&gt;</code></td><td>处决勾选项 → git mv 进墓地 → 重建索引</td></tr>
+        <tr><td><code>kb stats</code> · <code>kb serve</code></td><td>健康度 · MCP 门（stdio）</td></tr>
       </table>
     </div>
-    <pre><code># kb-MCP 已注册（user 级，所有 Claude Code 会话可用）
-claude mcp add --scope user kb -- node ~/.openclaw/shared/projects/kb-metabolism/dist/server.js
+    <pre><code># 安装（开源 npm 包）
+npm install -g kb-metabolism
 
-# 每周 cron（默认关闭——涉及模型调用成本，由你决定启用）
-30 9 * * 1 cd ~/.openclaw/shared/projects/kb-metabolism && \
-  npm run index --silent && npm run coroner --silent && \
-  claude -p "执行 kb-weekly-digest 技能流程" --permission-mode acceptEdits</code></pre>
+# 把 MCP 门接给任意 agent（本机已注册 user 级）
+claude mcp add --scope user kb -- kb serve --vault ~/notes
+
+# 每周 cron（默认关闭，由你决定启用）
+30 9 * * 1 kb --vault ~/notes digest</code></pre>
   </section>
 
   <section>
@@ -537,8 +540,8 @@ claude mcp add --scope user kb -- node ~/.openclaw/shared/projects/kb-metabolism
   </section>
 
   <footer>
-    代码 ~/.openclaw/shared/projects/kb-metabolism/ · 协议 docs/protocol.md · 规格 docs/specs/phase-0-1-2.md<br>
-    检索门上线 2026-07-07 · 信号自此起算 · AI 提案，人判决，git 兜底
+    开源 github.com/chenyk2016/kb-metabolism (MIT) · 协议 docs/protocol.md · 规格 docs/specs/<br>
+    检索门上线 2026-07-07 · 信号自此起算 · 判断力是插件，零 LLM 完整可用 · AI 提案，人判决，git 兜底
   </footer>
 
 </div>
