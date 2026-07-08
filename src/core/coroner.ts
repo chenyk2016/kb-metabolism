@@ -50,11 +50,11 @@ export function runCoroner(vault: Vault): CoronerResult {
 
   const candidates: Candidate[] = [];
   for (const n of notes) {
-    const tier = n.tier ?? "untriaged";
+    const tier = n.tier ?? "未分诊";
     const reasons: string[] = [];
 
     if (n.tier === "inbox" && n.expires && n.expires < todayStr) {
-      reasons.push(`inbox expired (${n.expires})`);
+      reasons.push(`inbox 已过期（${n.expires}）`);
     } else {
       const backlinks = (backlinkStmt.get(n.path) as { c: number }).c;
       const read = lastRead.get(n.path);
@@ -62,9 +62,9 @@ export function runCoroner(vault: Vault): CoronerResult {
       const age = days(lastTouched(root, n.path));
       if (backlinks === 0 && !readAlive && age > config.decayDays) {
         reasons.push(
-          "0 backlinks",
-          read ? `last read >${config.decayDays}d ago` : "never read via the gate",
-          `untouched for ${age}d`
+          "0 反链",
+          read ? `最后读取已超 ${config.decayDays} 天` : "从未经门读取",
+          `${age} 天未动`
         );
       }
     }
@@ -76,16 +76,16 @@ export function runCoroner(vault: Vault): CoronerResult {
 
   const file = path.join(reportsDir(root), `kill-list-${todayStr}.md`);
   const lines = [
-    `# Kill list ${todayStr}`,
+    `# 处决名单 ${todayStr}`,
     "",
-    `> Check \`[x]\` to approve execution (git mv to _graveyard/), then run:`,
+    `> 勾选 \`[x]\` 表示批准处决（git mv 到 _graveyard/），然后运行：`,
     `> \`kb execute ${path.relative(process.cwd(), file) || file}\``,
-    `> The AI only proposes — the human is the judge. Unchecked = pardoned`,
-    `> (it will reappear next week unless it earns a usage signal).`,
+    `> AI 只提案，人是法官。不勾选 = 赦免`,
+    `> （除非它获得使用信号，否则下周会再上榜）。`,
     "",
   ];
   if (candidates.length === 0) {
-    lines.push("No candidates. Metabolism healthy.");
+    lines.push("本期无候选。代谢健康。");
   } else {
     for (const c of candidates) {
       lines.push(`- [ ] \`${c.path}\` — [${c.tier}] ${c.title} | ${c.reasons.join("; ")}`);

@@ -19,10 +19,10 @@ export function buildServer(vault: Vault): McpServer {
     "kb_search",
     {
       description:
-        "Search the knowledge vault. This is the single retrieval gate — every query is logged as a usage signal that keeps notes alive. Returns paths, titles, and snippets.",
+        "检索知识库。这是唯一的检索门——每次查询都会记入访问日志（让笔记续命的使用信号）。返回路径、标题和摘要片段。",
       inputSchema: {
-        query: z.string().describe("search terms, any language"),
-        limit: z.number().optional().describe("max results, default 8"),
+        query: z.string().describe("检索词，中英文均可"),
+        limit: z.number().optional().describe("最多返回条数，默认 8"),
       },
     },
     async ({ query, limit }) => {
@@ -32,8 +32,8 @@ export function buildServer(vault: Vault): McpServer {
       appendSignal(vault.root, { tool: "kb_search", query });
       const text =
         hits.length === 0
-          ? `no results for: ${query}`
-          : hits.map((h) => `- ${h.path}\n  title: ${h.title}\n  snippet: ${h.snip}`).join("\n");
+          ? `无结果：${query}`
+          : hits.map((h) => `- ${h.path}\n  标题: ${h.title}\n  片段: ${h.snip}`).join("\n");
       return { content: [{ type: "text", text }] };
     }
   );
@@ -42,9 +42,9 @@ export function buildServer(vault: Vault): McpServer {
     "kb_read",
     {
       description:
-        "Read a note's full content (path from kb_search, relative to the vault root). Reads are the core evidence that a note is still alive — the coroner spares notes with recent reads.",
+        "读取笔记全文（路径来自 kb_search，相对 vault 根目录）。读取是笔记'仍被使用'的核心证据——法医会赦免近期被读过的笔记。",
       inputSchema: {
-        path: z.string().describe("note path relative to the vault root"),
+        path: z.string().describe("笔记路径，相对 vault 根目录"),
       },
     },
     async ({ path: rel }) => {
@@ -52,12 +52,12 @@ export function buildServer(vault: Vault): McpServer {
       const relNorm = path.relative(vault.root, abs);
       if (relNorm.startsWith("..") || !isManaged(relNorm)) {
         return {
-          content: [{ type: "text", text: `refused: ${rel} is outside the managed scope` }],
+          content: [{ type: "text", text: `拒绝：${rel} 不在管理范围内` }],
           isError: true,
         };
       }
       if (!fs.existsSync(abs)) {
-        return { content: [{ type: "text", text: `not found: ${rel}` }], isError: true };
+        return { content: [{ type: "text", text: `不存在：${rel}` }], isError: true };
       }
       appendSignal(vault.root, { tool: "kb_read", path: relNorm });
       return { content: [{ type: "text", text: fs.readFileSync(abs, "utf8") }] };
@@ -68,7 +68,7 @@ export function buildServer(vault: Vault): McpServer {
     "kb_stats",
     {
       description:
-        "Vault health: tier distribution, L0 capacity, untriaged count, orphan notes, recent gate traffic.",
+        "知识库健康度：层级分布、L0 容量、未分诊数、孤儿笔记、近期走门流量。",
       inputSchema: {},
     },
     async () => {

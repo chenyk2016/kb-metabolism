@@ -51,7 +51,7 @@ export function loadVault(explicitRoot?: string): Vault {
     : findVaultRoot(process.cwd());
   if (!root || !fs.existsSync(path.join(root, KB_DIR, "config.json"))) {
     throw new Error(
-      "not inside a kb vault (no .kb/config.json found) — run `kb init` first, or pass --vault <dir>"
+      "当前不在任何知识库内（向上找不到 .kb/config.json）——先运行 `kb init`，或用 --vault <目录> 指定"
     );
   }
   const raw = JSON.parse(

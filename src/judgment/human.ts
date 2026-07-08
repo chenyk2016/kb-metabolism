@@ -62,7 +62,7 @@ export async function humanTriage(notes: UntriagedNote[]): Promise<TierDecision[
       if (head) console.log(`  ${head}…`);
 
       const answer = (
-        await reader.ask("  tier? [0]=L0 [1]=L1 [i]=inbox [s]kip [q]uit > ")
+        await reader.ask("  定层？[0]=L0 [1]=L1 [i]=inbox [s]=跳过 [q]=退出 > ")
       )
         .trim()
         .toLowerCase();
@@ -73,11 +73,11 @@ export async function humanTriage(notes: UntriagedNote[]): Promise<TierDecision[
       if (answer === "0" || answer === "1") {
         const tier = answer === "0" ? "L0" : "L1";
         const useWhen = (
-          await reader.ask("  when will this be needed again? (empty = demote to inbox) > ")
+          await reader.ask("  什么时候会再用到？（留空 = 降级到 inbox）> ")
         ).trim();
         if (!useWhen) {
           // entry tax: no use_when, no L0/L1
-          decisions.push({ path: n.path, tier: "inbox", reason: "no use_when given" });
+          decisions.push({ path: n.path, tier: "inbox", reason: "未给出 use_when" });
         } else {
           decisions.push({ path: n.path, tier, useWhen });
         }
@@ -94,7 +94,7 @@ export async function humanTriage(notes: UntriagedNote[]): Promise<TierDecision[
 export async function confirm(prompt: string): Promise<boolean> {
   const reader = new LineReader();
   try {
-    const answer = (await reader.ask(`${prompt} [y/N] > `)).trim().toLowerCase();
+    const answer = (await reader.ask(`${prompt} [y=是/N=否] > `)).trim().toLowerCase();
     return answer === "y" || answer === "yes";
   } finally {
     reader.close();

@@ -7,28 +7,28 @@ import type { UntriagedNote } from "./human.js";
  * perform the judgment itself. The system stays agent-agnostic.
  */
 export function emitTriagePrompt(vault: Vault, notes: UntriagedNote[]): string {
-  return `# Task: triage ${notes.length} untriaged note(s) in the knowledge vault at ${vault.root}
+  return `# 任务：给知识库 ${vault.root} 中的 ${notes.length} 条未分诊笔记定层
 
-Rules (the metabolism protocol):
-- L0 = a core judgment the owner can restate in one sentence + a concrete "when will this be needed again" (kb_use_when). Hard cap ${vault.config.l0Cap}. Be strict.
-- L1 = reference material, long-term useful, requires kb_use_when.
-- inbox = everything without a defensible kb_use_when. Gets kb_expires = today + ${vault.config.inboxDays} days.
-- Entry tax: no use_when → inbox. When unsure, inbox.
+规则（知识代谢协议）：
+- L0 = 主人能一句话复述的核心判断 + 具体的"什么时候会再用到"（kb_use_when）。硬上限 ${vault.config.l0Cap} 条，从严。
+- L1 = 长期有用的资料/细节，能被检索到即可，必须有 kb_use_when。
+- inbox = 写不出站得住脚的 kb_use_when 的一切。写入 kb_expires = 今天 + ${vault.config.inboxDays} 天。
+- 入口税：没有 use_when → inbox。拿不准 → inbox。
 
-For each file below (paths relative to the vault root): read it, then add/update ONLY these frontmatter fields, leaving the body and other fields untouched:
-  kb_tier, kb_use_when (L0/L1 only), kb_triaged (today), kb_expires (inbox only)
+对下面每个文件（路径相对 vault 根目录）：读内容，然后只增改这些 frontmatter 字段，正文和其他字段一律不动：
+  kb_tier、kb_use_when（仅 L0/L1）、kb_triaged（今天）、kb_expires（仅 inbox）
 
-Files:
+文件清单：
 ${notes.map((n) => `- ${n.path} — ${n.title}`).join("\n")}
 
-When done, run \`kb index --vault ${vault.root}\` and report the tier distribution. List any notes you were unsure about for the owner to decide.`;
+完成后运行 \`kb index --vault ${vault.root}\`，汇报层级分布；拿不准的条目列出来交给主人拍板。`;
 }
 
 export function emitDigestPrompt(vault: Vault, reportFile: string): string {
-  return `# Task: weekly digest review for the knowledge vault at ${vault.root}
+  return `# 任务：知识库 ${vault.root} 的每周消化审查
 
-1. Read the kill list at ${reportFile} and sanity-check every candidate (do NOT check any box yourself — the human is the judge; annotate the line instead if a reason looks wrong).
-2. Look for duplicate/mergeable notes among managed notes and for L1 notes worth promoting to L0 (use \`kb search\`/\`kb read\` so lookups leave usage signals).
-3. Append a "## Digest proposals" section with "- [ ]" checkbox lines to the report file.
-4. Tell the owner: candidates count, proposals count, and that approving means checking boxes then running \`kb execute ${reportFile}\`.`;
+1. 读处决名单 ${reportFile}，逐条 sanity check（**不许替主人勾选任何框**——人是法官；判定理由与事实不符的，在该行末尾追加注释说明）。
+2. 在受管理笔记中找重复/可合并的，以及值得 L1→L0 升级的（检索用 \`kb search\` / \`kb read\`，让查询留下使用信号）。
+3. 把"## 消化提案"章节（"- [ ]" 勾选行）追加到报告文件末尾。
+4. 向主人汇报：候选数、提案数，并说明批准方式 = 勾选后运行 \`kb execute ${reportFile}\`。`;
 }

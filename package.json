@@ -1,7 +1,7 @@
 {
   "name": "kb-metabolism",
   "version": "0.2.0",
-  "description": "A knowledge base that knows how to forget — file-based truth, a logged retrieval gate (MCP), a data-driven coroner, and a human judge.",
+  "description": "一个会遗忘的知识库——文件为真相、带日志的检索门（MCP）、数据驱动的法医、人当法官。A knowledge base that knows how to forget.",
   "type": "module",
   "scripts": {
     "build": "tsc",

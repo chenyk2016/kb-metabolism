@@ -31,7 +31,7 @@ export function addNote(vault: Vault, opts: AddOptions): string {
   let tier = opts.tier ?? (opts.useWhen ? "L1" : "inbox");
   if ((tier === "L0" || tier === "L1") && !opts.useWhen) {
     throw new Error(
-      `tier ${tier} requires --use-when ("when will this be needed again?") — without it the note goes to inbox`
+      `${tier} 层必须提供 --use-when（"什么时候会再用到？"）——入口税：写不出用途只能进 inbox`
     );
   }
 

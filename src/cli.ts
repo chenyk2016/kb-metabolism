@@ -22,9 +22,9 @@ import type { TierDecision, Vault } from "./core/types.js";
 const program = new Command();
 program
   .name("kb")
-  .description("kb-metabolism — a knowledge base that knows how to forget")
+  .description("kb-metabolism 知识代谢系统——一个会遗忘的知识库")
   .version("0.2.0")
-  .option("--vault <dir>", "vault root (default: walk up from cwd for .kb/)");
+  .option("--vault <dir>", "知识库根目录（默认从当前目录向上找 .kb/）");
 
 function vault(): Vault {
   return loadVault(program.opts().vault);
@@ -45,7 +45,7 @@ function untriagedNotes(v: Vault, limit?: number): UntriagedNote[] {
         .trim()
         .slice(0, 400);
     } catch {
-      // unreadable file — triage on title alone
+      // 文件读不了就只凭标题分诊
     }
     return { path: r.path, title: r.title, head };
   });
@@ -54,19 +54,19 @@ function untriagedNotes(v: Vault, limit?: number): UntriagedNote[] {
 function applyDecisions(v: Vault, decisions: TierDecision[]): void {
   for (const d of decisions) applyDecision(v, d);
   const r = runIndex(v);
-  console.log(`\napplied ${decisions.length} decision(s); tiers now:`, r.tiers);
+  console.log(`\n已应用 ${decisions.length} 条决定；当前层级分布：`, r.tiers);
 }
 
 program
   .command("init")
-  .description("turn the current directory (or --vault) into a managed vault")
-  .option("--managed <globs...>", "globs of managed notes", ["**/*.md"])
-  .option("--capture-dir <dir>", "where `kb add` puts new notes", ".")
-  .option("--git", "git init the vault if it is not a repo")
+  .description("把当前目录（或 --vault）变成受管理的知识库")
+  .option("--managed <globs...>", "受管理笔记的 glob 范围", ["**/*.md"])
+  .option("--capture-dir <dir>", "`kb add` 写入的目录", ".")
+  .option("--git", "若不在 git 仓库中则 git init（处决的反悔按钮）")
   .action((opts) => {
     const root = path.resolve(program.opts().vault ?? process.cwd());
     if (fs.existsSync(path.join(kbDir(root), "config.json"))) {
-      console.error(`already a vault: ${root}`);
+      console.error(`已经是知识库了：${root}`);
       process.exit(1);
     }
     const v = initVault(root, { managed: opts.managed, captureDir: opts.captureDir });
@@ -83,49 +83,49 @@ program
             { stdio: "ignore" }
           );
         } catch {
-          // empty dir or missing git identity — vault still works without the commit
+          // 空目录或缺 git 身份——没有首次提交也能用
         }
-        console.log("initialized git repo (your undo button for executions)");
+        console.log("已初始化 git 仓库（处决的反悔按钮）");
       }
     }
     const r = runIndex(v);
-    console.log(`vault ready: ${root}`);
-    console.log(`managed: ${opts.managed.join(", ")} — ${r.notes} note(s), ${r.links} backlink(s)`);
-    console.log(`next: kb triage · kb serve (MCP gate) · kb digest (weekly)`);
+    console.log(`知识库就绪：${root}`);
+    console.log(`管理范围：${opts.managed.join(", ")}——${r.notes} 条笔记，${r.links} 条反链`);
+    console.log(`下一步：kb triage 分诊 · kb serve 开检索门（MCP）· kb digest 每周消化`);
   });
 
 program
   .command("index")
-  .description("rebuild the derived index (notes, backlinks, full-text)")
+  .description("重建派生索引（笔记、反链、全文检索）")
   .action(() => {
     const r = runIndex(vault());
-    console.log(`indexed ${r.notes} note(s), ${r.links} backlink(s)`);
-    console.log("tiers:", r.tiers);
+    console.log(`索引完成：${r.notes} 条笔记，${r.links} 条反链`);
+    console.log("层级分布：", r.tiers);
   });
 
 program
   .command("search <query>")
-  .description("search via the gate (logs a usage signal)")
-  .option("-n, --limit <n>", "max results", "8")
+  .description("走门检索（记一条使用信号）")
+  .option("-n, --limit <n>", "最多返回条数", "8")
   .action((query, opts) => {
     const v = vault();
     const db = openDb(v.root);
     const hits = searchNotes(db, query, parseInt(opts.limit, 10));
     db.close();
     appendSignal(v.root, { tool: "kb_search", query });
-    if (hits.length === 0) console.log(`no results for: ${query}`);
+    if (hits.length === 0) console.log(`无结果：${query}`);
     for (const h of hits) console.log(`${h.path}\n  ${h.title} — ${h.snip}\n`);
   });
 
 program
   .command("read <notePath>")
-  .description("print a note (logs the read — this is what keeps notes alive)")
+  .description("输出笔记全文（记读取信号——这就是笔记的续命方式）")
   .action((notePath) => {
     const v = vault();
     const abs = path.resolve(v.root, notePath);
     const rel = path.relative(v.root, abs);
     if (rel.startsWith("..") || !fs.existsSync(abs)) {
-      console.error(`not found in vault: ${notePath}`);
+      console.error(`知识库里找不到：${notePath}`);
       process.exit(1);
     }
     appendSignal(v.root, { tool: "kb_read", path: rel });
@@ -134,11 +134,11 @@ program
 
 program
   .command("add [title]")
-  .description("capture a note (entry tax: no --use-when means inbox + expiry)")
+  .description("捕捉笔记（入口税：不给 --use-when 就进 inbox 限期）")
   .option("-t, --tier <tier>", "L0 | L1 | inbox")
-  .option("-w, --use-when <text>", "when will this be needed again?")
-  .option("-f, --file <file>", "take content from a file")
-  .option("-d, --dir <dir>", "subdirectory (default: config captureDir)")
+  .option("-w, --use-when <text>", "什么时候会再用到？")
+  .option("-f, --file <file>", "从文件取内容")
+  .option("-d, --dir <dir>", "子目录（默认取配置 captureDir）")
   .action(async (title, opts) => {
     const v = vault();
     let content = "";
@@ -149,7 +149,7 @@ program
       content = Buffer.concat(chunks).toString("utf8");
     }
     if (!title && !content) {
-      console.error("nothing to add — pass a title, --file, or pipe content on stdin");
+      console.error("没有可添加的内容——请给标题、--file 或从 stdin 管道输入");
       process.exit(1);
     }
     const rel = addNote(v, {
@@ -160,21 +160,21 @@ program
       dir: opts.dir,
     });
     runIndex(v);
-    console.log(`added: ${rel}`);
+    console.log(`已添加：${rel}`);
   });
 
 program
   .command("triage")
-  .description("assign tiers to untriaged notes (provider: human | anthropic | agent)")
-  .option("--limit <n>", "triage at most n notes")
-  .option("--emit", "print an agent prompt instead of deciding (agent provider)")
-  .option("-y, --yes", "apply LLM proposals without confirmation")
+  .description("给未分诊笔记定层（provider：human | anthropic | agent）")
+  .option("--limit <n>", "最多分诊 n 条")
+  .option("--emit", "不做判断，输出给 agent 的任务提示（agent provider）")
+  .option("-y, --yes", "LLM 提案不经确认直接应用")
   .action(async (opts) => {
     const v = vault();
     runIndex(v);
     const notes = untriagedNotes(v, opts.limit ? parseInt(opts.limit, 10) : undefined);
     if (notes.length === 0) {
-      console.log("nothing untriaged. metabolism healthy.");
+      console.log("没有未分诊的笔记。代谢健康。");
       return;
     }
     const provider = opts.emit ? "agent" : v.config.judgment.provider;
@@ -185,32 +185,32 @@ program
     }
     if (provider === "anthropic") {
       const { anthropicTriage } = await import("./judgment/anthropic.js");
-      console.log(`asking ${v.config.judgment.triageModel} for ${notes.length} proposal(s)…`);
+      console.log(`请 ${v.config.judgment.triageModel} 给 ${notes.length} 条笔记出提案…`);
       const decisions = await anthropicTriage(v, notes);
       for (const d of decisions) {
-        console.log(`- ${d.path} → ${d.tier}${d.useWhen ? ` (${d.useWhen})` : ""} — ${d.reason ?? ""}`);
+        console.log(`- ${d.path} → ${d.tier}${d.useWhen ? `（${d.useWhen}）` : ""} — ${d.reason ?? ""}`);
       }
-      const ok = opts.yes || (await confirm(`apply ${decisions.length} proposal(s)?`));
+      const ok = opts.yes || (await confirm(`应用这 ${decisions.length} 条提案？`));
       if (ok) applyDecisions(v, decisions);
-      else console.log("nothing applied.");
+      else console.log("未应用任何提案。");
       return;
     }
-    // human (default)
+    // human（默认）
     const decisions = await humanTriage(notes);
     if (decisions.length > 0) applyDecisions(v, decisions);
-    else console.log("nothing applied.");
+    else console.log("未应用任何决定。");
   });
 
 program
   .command("digest")
-  .description("weekly digest: reindex, run the coroner, add LLM proposals if configured")
-  .option("--no-llm", "skip LLM proposals even if provider is anthropic")
-  .option("--emit", "print an agent prompt for the review step")
+  .description("每周消化：重建索引 + 法医验尸 + 可选 LLM 提案")
+  .option("--no-llm", "即便 provider 是 anthropic 也跳过 LLM 提案")
+  .option("--emit", "输出给 agent 的审查任务提示")
   .action(async (opts) => {
     const v = vault();
     runIndex(v);
     const { report, candidates } = runCoroner(v);
-    console.log(`kill list: ${candidates.length} candidate(s) → ${report}`);
+    console.log(`处决名单：${candidates.length} 条候选 → ${report}`);
 
     if (opts.emit || v.config.judgment.provider === "agent") {
       console.log("\n" + emitDigestPrompt(v, report));
@@ -221,49 +221,49 @@ program
         .prepare("SELECT path, title, tier, use_when FROM notes ORDER BY path")
         .all() as Array<{ path: string; title: string; tier: string | null; use_when: string | null }>;
       db.close();
-      console.log(`asking ${v.config.judgment.digestModel} for digest proposals…`);
+      console.log(`请 ${v.config.judgment.digestModel} 出消化提案…`);
       const proposals = await anthropicDigest(v, candidates, getStats(v), noteList);
       fs.appendFileSync(report, "\n" + proposals.trim() + "\n");
-      console.log("proposals appended to the report.");
+      console.log("提案已追加进报告。");
     }
 
     console.log("\n" + formatStats(getStats(v)));
-    console.log(`\nreview the report, check [x] what you approve, then: kb execute ${report}`);
+    console.log(`\n审阅报告，勾选 [x] 批准的条目，然后：kb execute ${report}`);
   });
 
 program
   .command("execute <report>")
-  .description("execute checked kill-list entries (git mv to _graveyard/, reversible)")
+  .description("执行名单中已勾选的条目（git mv 到 _graveyard/，可反悔）")
   .action((report) => {
     const v = vault();
     const r = executeReport(v, report);
     if (r.moved.length === 0 && r.skipped.length === 0) {
-      console.log("no boxes checked — nothing happened.");
+      console.log("没有勾选任何条目——无事发生。");
       return;
     }
-    for (const m of r.moved) console.log(`buried: ${m}`);
-    for (const s of r.skipped) console.log(`skipped (missing): ${s}`);
-    console.log(r.committed ? "committed to git (reversible)." : "not committed (no git / staged work present).");
+    for (const m of r.moved) console.log(`已掩埋：${m}`);
+    for (const s of r.skipped) console.log(`跳过（文件不存在）：${s}`);
+    console.log(r.committed ? "已提交 git（可反悔）。" : "未提交（无 git 或暂存区有你的东西）。");
   });
 
 program
   .command("stats")
-  .description("vault health")
+  .description("知识库健康度")
   .action(() => {
     console.log(formatStats(getStats(vault())));
   });
 
 program
   .command("serve")
-  .description("run the MCP retrieval gate (stdio) for agents")
+  .description("启动 MCP 检索门（stdio），供任意 agent 接入")
   .action(async () => {
     await serve(vault());
   });
 
 program
   .command("migrate")
-  .description("import access-log signals from a legacy sqlite kb.db")
-  .requiredOption("--from <db>", "path to the old kb.db")
+  .description("从旧版 sqlite kb.db 导入访问日志信号")
+  .requiredOption("--from <db>", "旧 kb.db 的路径")
   .action((opts) => {
     const v = vault();
     const old = new Database(path.resolve(opts.from), { readonly: true });
@@ -280,7 +280,7 @@ program
       })
     );
     fs.appendFileSync(signalLogPath(v.root), lines.join("\n") + (lines.length ? "\n" : ""));
-    console.log(`imported ${lines.length} signal(s) into ${signalLogPath(v.root)}`);
+    console.log(`已导入 ${lines.length} 条信号 → ${signalLogPath(v.root)}`);
   });
 
 program.parseAsync().catch((err) => {

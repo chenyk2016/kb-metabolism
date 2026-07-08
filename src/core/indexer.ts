@@ -153,7 +153,7 @@ export function runIndex(vault: Vault): IndexResult {
 
   const tiers: Record<string, number> = {};
   for (const r of db
-    .prepare("SELECT COALESCE(tier, 'untriaged') AS t, COUNT(*) AS c FROM notes GROUP BY t")
+    .prepare("SELECT COALESCE(tier, '未分诊') AS t, COUNT(*) AS c FROM notes GROUP BY t")
     .all() as Array<{ t: string; c: number }>) {
     tiers[r.t] = r.c;
   }

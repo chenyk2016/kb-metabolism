@@ -16,7 +16,7 @@ export function getStats(vault: Vault): VaultStats {
   const db = openDb(vault.root);
   const tiers: Record<string, number> = {};
   for (const r of db
-    .prepare("SELECT COALESCE(tier, 'untriaged') AS t, COUNT(*) AS c FROM notes GROUP BY t")
+    .prepare("SELECT COALESCE(tier, '未分诊') AS t, COUNT(*) AS c FROM notes GROUP BY t")
     .all() as Array<{ t: string; c: number }>) {
     tiers[r.t] = r.c;
   }
@@ -52,12 +52,12 @@ export function getStats(vault: Vault): VaultStats {
 
 export function formatStats(s: VaultStats): string {
   const lines = [
-    `${s.total} notes under management`,
+    `管理中笔记：${s.total} 条`,
     ...Object.entries(s.tiers).map(([t, c]) => `- ${t}: ${c}`),
-    `L0 capacity: ${s.l0}/${s.l0Cap}`,
-    `orphan notes (0 backlinks): ${s.orphans}`,
-    `last 7 days: ${s.reads7d} reads, ${s.searches7d} searches via the gate`,
+    `L0 容量：${s.l0}/${s.l0Cap}`,
+    `孤儿笔记（0 反链）：${s.orphans}`,
+    `近 7 天走门流量：读取 ${s.reads7d} 次，检索 ${s.searches7d} 次`,
   ];
-  if (s.total === 0) lines.push("index is empty — run `kb index`");
+  if (s.total === 0) lines.push("索引为空——先跑 `kb index`");
   return lines.join("\n");
 }
