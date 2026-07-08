@@ -12,9 +12,19 @@ import { addNote } from "../core/capture.js";
 import { runIndex } from "../core/indexer.js";
 import type { Vault } from "../core/types.js";
 
+/** 门规：随 MCP initialize 注入接入方 agent 的上下文——规则跟着门走，不依赖客户端配置 */
+const GATE_INSTRUCTIONS = `这是个人知识库的代谢检索门。使用规则：
+1. 查个人积累的知识（账号、流程、踩坑记录、项目背景）先 kb_search 再回答，读笔记用 kb_read——读取是笔记的续命信号，不要绕过门直接读库内文件。
+2. 存知识用 kb_add。返回"疑似同主题"时，先 kb_read 候选：同主题就直接编辑该文件补充（一个主题一篇笔记，宁可长文不要碎片），确认新主题才带 force 重试。
+3. 编辑已有笔记直接改文件即可，改完可跑 \`kb index\` 刷新索引。
+4. 永远不要替用户勾选处决名单、删除或移动笔记——AI 只提案，人是法官。`;
+
 /** The retrieval gate: every call leaves a metabolic signal in the log. */
 export function buildServer(vault: Vault): McpServer {
-  const server = new McpServer({ name: "kb-metabolism", version: "0.2.0" });
+  const server = new McpServer(
+    { name: "kb-metabolism", version: "0.2.0" },
+    { instructions: GATE_INSTRUCTIONS }
+  );
   const isManaged = picomatch(vault.config.managed, { ignore: vault.config.exclude });
 
   server.registerTool(
