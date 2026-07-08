@@ -1,0 +1,544 @@
+<title>kb-metabolism 知识代谢系统 · 项目说明</title>
+<style>
+  :root {
+    --bg: #f5f8f4;
+    --surface: #ffffff;
+    --ink: #1e2a24;
+    --muted: #5c6b62;
+    --line: #d8e1d8;
+    --accent: #276b4f;
+    --accent-soft: #e2efe6;
+    --danger: #a8453a;
+    --danger-soft: #f4e4e0;
+    --amber: #96691f;
+    --amber-soft: #f2e8d3;
+    --slate: #3f5d7a;
+    --slate-soft: #e3eaf1;
+    --grave: #6b6b66;
+    --grave-soft: #ebebe6;
+    --code-bg: #edf2ec;
+    --serif: "Songti SC", "Noto Serif SC", "Source Han Serif SC", serif;
+    --sans: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", -apple-system, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111a14;
+      --surface: #18231c;
+      --ink: #e2ece4;
+      --muted: #92a396;
+      --line: #2a3a2f;
+      --accent: #5cb488;
+      --accent-soft: #1d3327;
+      --danger: #d47f70;
+      --danger-soft: #392420;
+      --amber: #cf9f4e;
+      --amber-soft: #342917;
+      --slate: #85a8c9;
+      --slate-soft: #1f2b36;
+      --grave: #9a9a92;
+      --grave-soft: #262620;
+      --code-bg: #1d2a22;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111a14;
+    --surface: #18231c;
+    --ink: #e2ece4;
+    --muted: #92a396;
+    --line: #2a3a2f;
+    --accent: #5cb488;
+    --accent-soft: #1d3327;
+    --danger: #d47f70;
+    --danger-soft: #392420;
+    --amber: #cf9f4e;
+    --amber-soft: #342917;
+    --slate: #85a8c9;
+    --slate-soft: #1f2b36;
+    --grave: #9a9a92;
+    --grave-soft: #262620;
+    --code-bg: #1d2a22;
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f8f4;
+    --surface: #ffffff;
+    --ink: #1e2a24;
+    --muted: #5c6b62;
+    --line: #d8e1d8;
+    --accent: #276b4f;
+    --accent-soft: #e2efe6;
+    --danger: #a8453a;
+    --danger-soft: #f4e4e0;
+    --amber: #96691f;
+    --amber-soft: #f2e8d3;
+    --slate: #3f5d7a;
+    --slate-soft: #e3eaf1;
+    --grave: #6b6b66;
+    --grave-soft: #ebebe6;
+    --code-bg: #edf2ec;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.85;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    padding: 16px 20px;
+    overflow-x: auto;
+    border-radius: 3px;
+    line-height: 1.7;
+    margin: 0;
+  }
+  pre code { background: none; padding: 0; font-size: 0.84rem; }
+
+  /* ---------- header ---------- */
+  header { padding: 72px 0 40px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.22em;
+    color: var(--accent);
+    margin: 0 0 20px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: clamp(2rem, 5.5vw, 3.1rem);
+    line-height: 1.25;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+  .thesis {
+    font-family: var(--serif);
+    font-size: clamp(1.05rem, 2.6vw, 1.3rem);
+    color: var(--muted);
+    max-width: 40em;
+    margin: 18px 0 0;
+    line-height: 1.9;
+    text-wrap: balance;
+  }
+  .thesis strong { color: var(--ink); }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 32px;
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 5px 12px;
+    border-radius: 999px;
+    color: var(--muted);
+  }
+  .chip b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- sections ---------- */
+  section { margin-top: 76px; }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 12px;
+    margin-bottom: 28px;
+  }
+  .sec-no {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+  }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 1.45rem;
+    margin: 0;
+  }
+  .prose { max-width: 42em; }
+  .prose p { margin: 0 0 1em; }
+  .muted { color: var(--muted); }
+
+  /* ---------- pathway（代谢通路） ---------- */
+  .pathway { position: relative; padding-left: 34px; max-width: 46em; }
+  .pathway::before {
+    content: "";
+    position: absolute;
+    left: 9px; top: 14px; bottom: 14px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent) 0%, var(--amber) 55%, var(--danger) 100%);
+  }
+  .stage { position: relative; padding: 0 0 34px; }
+  .stage:last-child { padding-bottom: 0; }
+  .stage::before {
+    content: "";
+    position: absolute;
+    left: -31px; top: 8px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 3px solid var(--stage-c, var(--accent));
+  }
+  .stage h3 {
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0 0 4px;
+  }
+  .stage h3 code { font-size: 0.8em; }
+  .stage p { margin: 0; color: var(--muted); font-size: 0.94rem; max-width: 40em; }
+  .stage .rule {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--stage-c, var(--accent));
+    background: color-mix(in srgb, var(--stage-c, var(--accent)) 12%, transparent);
+    padding: 3px 10px;
+    border-radius: 3px;
+  }
+
+  /* ---------- tier cards ---------- */
+  .tiers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .tier {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 20px 22px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .tier-mark {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--tc);
+  }
+  .tier h3 { font-family: var(--serif); font-size: 1.05rem; margin: 2px 0 0; }
+  .tier .loc { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); word-break: break-all; }
+  .tier p { margin: 4px 0 0; font-size: 0.9rem; color: var(--muted); }
+  .tier .cap {
+    margin-top: auto;
+    padding-top: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--tc);
+  }
+
+  /* ---------- tables ---------- */
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+  th, td { text-align: left; padding: 11px 18px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  th {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    color: var(--muted);
+    background: color-mix(in srgb, var(--line) 30%, transparent);
+  }
+  td code { white-space: nowrap; }
+
+  /* ---------- callout ---------- */
+  .callout {
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    background: var(--accent-soft);
+    border-radius: 3px;
+    padding: 18px 22px;
+    max-width: 46em;
+    margin-top: 24px;
+  }
+  .callout.danger {
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+    background: var(--danger-soft);
+  }
+  .callout p { margin: 0; font-size: 0.95rem; }
+  .callout b { font-family: var(--serif); }
+
+  /* ---------- kill list specimen ---------- */
+  .specimen {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 20px 24px;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    line-height: 2.1;
+    overflow-x: auto;
+  }
+  .specimen .h { color: var(--muted); }
+  .specimen .kill { color: var(--danger); }
+  .specimen .spare { color: var(--muted); }
+  .specimen ul { list-style: none; margin: 6px 0 0; padding: 0; white-space: nowrap; }
+
+  /* ---------- verdict rules ---------- */
+  .verdict { max-width: 46em; }
+  .verdict li { margin-bottom: 6px; }
+  .verdict .and {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--danger);
+    background: var(--danger-soft);
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-right: 8px;
+  }
+
+  /* ---------- invariants ---------- */
+  .invariants { list-style: none; margin: 0; padding: 0; max-width: 46em; counter-reset: inv; }
+  .invariants li {
+    counter-increment: inv;
+    padding: 16px 0;
+    border-bottom: 1px dashed var(--line);
+    display: flex;
+    gap: 18px;
+  }
+  .invariants li:last-child { border-bottom: none; }
+  .invariants li::before {
+    content: counter(inv, cjk-ideographic);
+    font-family: var(--serif);
+    font-weight: 900;
+    color: var(--accent);
+    flex: 0 0 1.4em;
+    line-height: 1.85;
+  }
+  .invariants b { font-family: var(--serif); }
+  .invariants .why { display: block; color: var(--muted); font-size: 0.9rem; }
+
+  /* ---------- non-goals ---------- */
+  .nongoals { max-width: 46em; }
+  .nongoals li { margin-bottom: 10px; }
+  .nongoals b { font-family: var(--serif); }
+  .nongoals span { color: var(--muted); font-size: 0.93rem; }
+
+  footer {
+    margin-top: 90px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--muted);
+    line-height: 2.2;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    a { transition: color 120ms ease; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">KB-METABOLISM · 知识代谢系统 · 项目说明</p>
+    <h1>让知识库学会遗忘</h1>
+    <p class="thesis">知识库的健康度不看存了多少条，看每一条都有明确的未来用途。<strong>默认过期，主动续期</strong>——文件为真相，一道带日志的门，定时作业提案，人当法官。</p>
+    <div class="chips">
+      <span class="chip">v0.1.0 · <b>2026-07-07 上线</b></span>
+      <span class="chip">管理范围 <b>00-my-inbox</b></span>
+      <span class="chip">当前 <b>39 条笔记 · 23 条反链</b></span>
+      <span class="chip">Node 22 + TS · SQLite FTS5 · MCP</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head"><span class="sec-no">§ 01</span><h2>病根：只有进，没有出</h2></div>
+    <div class="prose">
+      <p>传统个人知识库的宿命：AI 时代收藏成本趋近于零，于是只进不出、越塞越多（全库已 2537 个文件），人无法通读，检索靠翻，删除靠勇气——最终变成一个<strong>没人敢清理的垃圾桶</strong>。</p>
+      <p>问题不出在存储或检索工具上，出在系统缺了两个器官：<strong>消化</strong>（把资料变成可复述的判断）和<strong>排泄</strong>（把失去用途的内容排出去）。本系统不是第 13 个工具，是给现有 Markdown 库装上这两个器官的代谢机制。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-no">§ 02</span><h2>代谢通路</h2></div>
+    <div class="pathway">
+      <div class="stage" style="--stage-c: var(--accent)">
+        <h3>捕捉 → 分诊 <code>/kb-triage</code></h3>
+        <p>新内容进来先定层写 frontmatter（<code>kb_tier</code> / <code>kb_use_when</code>），只加元数据，不动正文。</p>
+        <span class="rule">入口税：写不出「什么时候会再用到」的，只能进 inbox 等死</span>
+      </div>
+      <div class="stage" style="--stage-c: var(--accent)">
+        <h3>存活 → 使用即续命</h3>
+        <p>所有检索走同一道门 <code>kb_search</code> / <code>kb_read</code>（MCP），每次访问自动记入日志——这是笔记「仍被使用」的唯一证据。</p>
+      </div>
+      <div class="stage" style="--stage-c: var(--amber)">
+        <h3>衰减 → 法医验尸 <code>npm run coroner</code></h3>
+        <p>每周扫一遍：90 天零读取、零反链、git 长期未动的笔记，进入处决名单；inbox 层 30 天到期即候选。</p>
+      </div>
+      <div class="stage" style="--stage-c: var(--danger)">
+        <h3>审判 → 人勾选 <code>[x]</code></h3>
+        <p>AI 只提案，人是法官。每周花 5 分钟勾选名单；不勾选即赦免，获得使用信号可自动脱榜。</p>
+      </div>
+      <div class="stage" style="--stage-c: var(--grave)">
+        <h3>排出 → 墓地 <code>_graveyard/</code></h3>
+        <p><code>npm run execute</code> 对勾选项执行 <code>git mv</code>，索引同步重建。git 兜底，永远可反悔；墓地内容随时可真删。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-no">§ 03</span><h2>四层空间</h2></div>
+    <div class="tiers">
+      <div class="tier" style="--tc: var(--accent)">
+        <span class="tier-mark">L0</span>
+        <h3>核心 · 人读</h3>
+        <p>每条 = 一句可复述的判断 + 何时会再用。这是你真正「拥有」的知识。</p>
+        <span class="cap">硬上限 100 条 · 进一条须挤一条</span>
+      </div>
+      <div class="tier" style="--tc: var(--slate)">
+        <span class="tier-mark">L1</span>
+        <h3>资料 · AI 读</h3>
+        <p>细节、代码、步骤。人不通读，能被检索门找到即可。</p>
+        <span class="cap">90 天零信号 → 进处决名单</span>
+      </div>
+      <div class="tier" style="--tc: var(--amber)">
+        <span class="tier-mark">in</span>
+        <h3>inbox · 暂存</h3>
+        <p>写不出用途的暂存于此，等它自己证明价值——或者死掉。</p>
+        <span class="cap">30 天到期（kb_expires）</span>
+      </div>
+      <div class="tier" style="--tc: var(--grave)">
+        <span class="tier-mark">†</span>
+        <h3>墓地 · _graveyard/</h3>
+        <p>被处决的笔记安息处。git 历史完整保留，反悔一条命令找回。</p>
+        <span class="cap">随时可清空</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-no">§ 04</span><h2>检索门：唯一入口，自动记账</h2></div>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>MCP 工具</th><th>作用</th><th>代谢信号</th></tr>
+        <tr><td><code>kb_search</code></td><td>混合检索：FTS5 中文 trigram + LIKE 兜底，返回路径 / 标题 / 摘要</td><td>记录检索词</td></tr>
+        <tr><td><code>kb_read</code></td><td>读笔记全文（仅限管理范围内）</td><td><b>记录读取</b>——续命的核心证据</td></tr>
+        <tr><td><code>kb_stats</code></td><td>健康度：层级分布、L0 容量、孤儿笔记、近 7 天访问</td><td>—</td></tr>
+      </table>
+    </div>
+    <div class="callout">
+      <p><b>只需要记住一条纪律：查知识走 kb_search，别绕过门。</b><br>访问日志是全系统唯一不可再生的数据（重建索引也不清空）。信号从 2026-07-07 起算，你今天的每一次查询，都是三个月后法医手里的证据。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-no">§ 05</span><h2>法医判定与处决名单</h2></div>
+    <div class="prose">
+      <p>L1 / 未分诊笔记进入名单，需<strong>三个信号同时归零</strong>：</p>
+    </div>
+    <ul class="verdict">
+      <li><span class="and">AND</span>访问日志 90 天零读取</li>
+      <li><span class="and">AND</span>反向链接数 = 0（全 vault 扫描，daily 笔记的引用也算活着）</li>
+      <li><span class="and">AND</span>git 最后修改超过 90 天</li>
+    </ul>
+    <p class="prose muted">inbox 层规则更狠：<code>kb_expires</code> 一过即候选，不用等 90 天。前 90 天日志尚薄，判定以 git 时间 + 反链为主。</p>
+    <div class="specimen">
+      <div class="h"># 处决名单 2026-10-05 （示例）</div>
+      <ul>
+        <li class="kill">- [x] `00-my-inbox/某次一次性调研.md` — [inbox] 已过期 35 天</li>
+        <li class="spare">- [ ] `00-my-inbox/风控改造步骤.md` — [L1] 0 反链；git 96 天未动 ← 人工赦免</li>
+      </ul>
+      <div class="h">$ npm run execute -- reports/kill-list-2026-10-05.md</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-no">§ 06</span><h2>代谢节律</h2></div>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>频率</th><th>动作</th><th>执行者</th></tr>
+        <tr><td>随时</td><td>检索走 kb-MCP，自动积累使用信号</td><td>人 + 所有 agent</td></tr>
+        <tr><td>每周</td><td><code>/kb-triage</code> 分诊新笔记 → <code>/kb-weekly-digest</code> 出名单 + 合并/升级提案</td><td>agent 提案</td></tr>
+        <tr><td>每周</td><td>审名单、勾选、<code>npm run execute</code></td><td><b>人 · 约 5 分钟</b></td></tr>
+        <tr><td>每季</td><td>L0 是否仍 ≤100，全库健康度复查</td><td>人 + agent</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-no">§ 07</span><h2>架构不变量</h2></div>
+    <ul class="invariants">
+      <li><div><b>真相层是纯 Markdown + git。</b><span class="why">SQLite、FTS 索引都是派生物，随时可删库重建；Obsidian 只是 L0 的阅读器。</span></div></li>
+      <li><div><b>访问日志永不清空。</b><span class="why">它是唯一不可再生的代谢信号，重建索引时唯独保留 access_log 表。</span></div></li>
+      <li><div><b>所有检索走同一道门。</b><span class="why">没有日志就没有衰减判定——绕过门的检索等于给全部笔记免死金牌。</span></div></li>
+      <li><div><b>判断力按价值密度分配。</b><span class="why">分诊是高频低价值判断，用便宜模型；消化与 L0 挤位才值得顶级模型。</span></div></li>
+      <li><div><b>AI 提案，人判决。</b><span class="why">删除永远经名单勾选，git mv 保证每一次处决都可反悔。</span></div></li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-no">§ 08</span><h2>命令速查</h2></div>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>命令</th><th>职责</th></tr>
+        <tr><td><code>npm run index</code></td><td>索引器：笔记 + 反链 → SQLite（39 条 · 23 反链）</td></tr>
+        <tr><td><code>npm run coroner</code></td><td>法医：零信号判定 → <code>reports/kill-list-*.md</code></td></tr>
+        <tr><td><code>npm run execute -- &lt;report&gt;</code></td><td>处决勾选项 → git mv 进墓地 → 重建索引</td></tr>
+        <tr><td><code>npm run build &amp;&amp; npm run smoke</code></td><td>改代码后：编译 + MCP 端到端冒烟</td></tr>
+        <tr><td><code>/kb-triage</code> · <code>/kb-weekly-digest</code></td><td>两个作业 skill（已装入 ~/.openclaw/shared/skills/）</td></tr>
+      </table>
+    </div>
+    <pre><code># kb-MCP 已注册（user 级，所有 Claude Code 会话可用）
+claude mcp add --scope user kb -- node ~/.openclaw/shared/projects/kb-metabolism/dist/server.js
+
+# 每周 cron（默认关闭——涉及模型调用成本，由你决定启用）
+30 9 * * 1 cd ~/.openclaw/shared/projects/kb-metabolism && \
+  npm run index --silent && npm run coroner --silent && \
+  claude -p "执行 kb-weekly-digest 技能流程" --permission-mode acceptEdits</code></pre>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-no">§ 09</span><h2>刻意不做</h2></div>
+    <ul class="nongoals">
+      <li><b>不做向量检索。</b> <span>39 条量级 FTS 足够；索引层可重建，日后加装无迁移成本。</span></li>
+      <li><b>不做常驻 watcher。</b> <span>分诊按需或每周批量跑，无状态 agent 干完即退。</span></li>
+      <li><b>不自动开启 cron。</b> <span>每次运行花模型调用费，开关在人手里。</span></li>
+      <li><b>不做 Web UI。</b> <span>Obsidian 就是 L0 的阅读器，本页就是说明书。</span></li>
+      <li><b>不碰 00-my-inbox 以外的目录。</b> <span>首期边界，跑通代谢闭环再谈扩张。</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    代码 ~/.openclaw/shared/projects/kb-metabolism/ · 协议 docs/protocol.md · 规格 docs/specs/phase-0-1-2.md<br>
+    检索门上线 2026-07-07 · 信号自此起算 · AI 提案，人判决，git 兜底
+  </footer>
+
+</div>
