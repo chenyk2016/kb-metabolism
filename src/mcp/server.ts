@@ -8,6 +8,8 @@ import { openDb } from "../core/db.js";
 import { searchNotes, noResultHint } from "../core/search.js";
 import { appendSignal } from "../core/signals.js";
 import { getStats, formatStats } from "../core/stats.js";
+import { addNote } from "../core/capture.js";
+import { runIndex } from "../core/indexer.js";
 import type { Vault } from "../core/types.js";
 
 /** The retrieval gate: every call leaves a metabolic signal in the log. */
@@ -19,9 +21,9 @@ export function buildServer(vault: Vault): McpServer {
     "kb_search",
     {
       description:
-        "检索知识库。这是唯一的检索门——每次查询都会记入访问日志（让笔记续命的使用信号）。多个关键词用空格分开（AND 语义）。返回路径、标题和摘要片段。",
+        "检索知识库。这是唯一的检索门——每次查询都会记入访问日志（让笔记续命的使用信号）。直接用自然语言查询：整串精确命中优先，无果时自动分词按相关度排序。返回路径、标题和摘要片段。",
       inputSchema: {
-        query: z.string().describe("检索词，中英文均可；多个关键词用空格分开（AND）"),
+        query: z.string().describe("自然语言检索词，中英文均可"),
         limit: z.number().optional().describe("最多返回条数，默认 8"),
       },
     },
@@ -61,6 +63,45 @@ export function buildServer(vault: Vault): McpServer {
       }
       appendSignal(vault.root, { tool: "kb_read", path: relNorm });
       return { content: [{ type: "text", text: fs.readFileSync(abs, "utf8") }] };
+    }
+  );
+
+  server.registerTool(
+    "kb_add",
+    {
+      description:
+        "捕捉新笔记进知识库，入口税由系统强制执行：不给 use_when（什么时候会再用到）只能进 inbox 层并在 30 天后过期；给了 use_when 默认进 L1。编辑已有笔记请直接改文件（mtime/git 天然记账），删除永远走处决名单由人审批——本工具只管新增。",
+      inputSchema: {
+        title: z.string().describe("笔记标题"),
+        content: z.string().optional().describe("笔记正文（Markdown）"),
+        tier: z
+          .enum(["L0", "L1", "inbox"])
+          .optional()
+          .describe("层级；L0/L1 必须同时提供 use_when，否则会被拒绝"),
+        use_when: z.string().optional().describe("一句话：什么时候会再用到"),
+        dir: z.string().optional().describe("写入的子目录，默认为配置的 captureDir"),
+      },
+    },
+    async ({ title, content, tier, use_when, dir }) => {
+      try {
+        const rel = addNote(vault, {
+          title,
+          content: content ?? "",
+          tier,
+          useWhen: use_when,
+          dir,
+        });
+        runIndex(vault);
+        const note = use_when
+          ? `已入 ${tier ?? "L1"} 层`
+          : `未提供 use_when，已按入口税进 inbox 层（30 天后过期，除非升级）`;
+        return { content: [{ type: "text", text: `已添加：${rel}\n${note}` }] };
+      } catch (err) {
+        return {
+          content: [{ type: "text", text: err instanceof Error ? err.message : String(err) }],
+          isError: true,
+        };
+      }
     }
   );
 

@@ -31,7 +31,7 @@ export function addNote(vault: Vault, opts: AddOptions): string {
   let tier = opts.tier ?? (opts.useWhen ? "L1" : "inbox");
   if ((tier === "L0" || tier === "L1") && !opts.useWhen) {
     throw new Error(
-      `${tier} 层必须提供 --use-when（"什么时候会再用到？"）——入口税：写不出用途只能进 inbox`
+      `${tier} 层必须提供 use_when（"什么时候会再用到？"）——入口税：写不出用途只能进 inbox`
     );
   }
 
@@ -46,7 +46,10 @@ export function addNote(vault: Vault, opts: AddOptions): string {
       .slice(0, 10);
   }
 
-  const dir = path.join(vault.root, opts.dir ?? vault.config.captureDir);
+  const dir = path.resolve(vault.root, opts.dir ?? vault.config.captureDir);
+  if (path.relative(vault.root, dir).startsWith("..")) {
+    throw new Error("目录越界：只能写入知识库内部");
+  }
   fs.mkdirSync(dir, { recursive: true });
   const date = new Date().toISOString().slice(0, 10);
   let file = path.join(dir, `${date}-${slugify(opts.title)}.md`);
