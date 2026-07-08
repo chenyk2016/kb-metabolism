@@ -7,7 +7,7 @@ import Database from "better-sqlite3";
 import { initVault, loadVault, kbDir, signalLogPath } from "./core/config.js";
 import { runIndex } from "./core/indexer.js";
 import { openDb } from "./core/db.js";
-import { searchNotes } from "./core/search.js";
+import { searchNotes, noResultHint } from "./core/search.js";
 import { appendSignal } from "./core/signals.js";
 import { runCoroner } from "./core/coroner.js";
 import { executeReport } from "./core/executor.js";
@@ -113,7 +113,7 @@ program
     const hits = searchNotes(db, query, parseInt(opts.limit, 10));
     db.close();
     appendSignal(v.root, { tool: "kb_search", query });
-    if (hits.length === 0) console.log(`无结果：${query}`);
+    if (hits.length === 0) console.log(`无结果：${query}\n${noResultHint(query)}`);
     for (const h of hits) console.log(`${h.path}\n  ${h.title} — ${h.snip}\n`);
   });
 

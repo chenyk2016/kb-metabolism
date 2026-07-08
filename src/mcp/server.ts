@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import picomatch from "picomatch";
 import { openDb } from "../core/db.js";
-import { searchNotes } from "../core/search.js";
+import { searchNotes, noResultHint } from "../core/search.js";
 import { appendSignal } from "../core/signals.js";
 import { getStats, formatStats } from "../core/stats.js";
 import type { Vault } from "../core/types.js";
@@ -19,9 +19,9 @@ export function buildServer(vault: Vault): McpServer {
     "kb_search",
     {
       description:
-        "检索知识库。这是唯一的检索门——每次查询都会记入访问日志（让笔记续命的使用信号）。返回路径、标题和摘要片段。",
+        "检索知识库。这是唯一的检索门——每次查询都会记入访问日志（让笔记续命的使用信号）。多个关键词用空格分开（AND 语义）。返回路径、标题和摘要片段。",
       inputSchema: {
-        query: z.string().describe("检索词，中英文均可"),
+        query: z.string().describe("检索词，中英文均可；多个关键词用空格分开（AND）"),
         limit: z.number().optional().describe("最多返回条数，默认 8"),
       },
     },
@@ -32,7 +32,7 @@ export function buildServer(vault: Vault): McpServer {
       appendSignal(vault.root, { tool: "kb_search", query });
       const text =
         hits.length === 0
-          ? `无结果：${query}`
+          ? `无结果：${query}\n${noResultHint(query)}`
           : hits.map((h) => `- ${h.path}\n  标题: ${h.title}\n  片段: ${h.snip}`).join("\n");
       return { content: [{ type: "text", text }] };
     }

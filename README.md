@@ -77,7 +77,9 @@ claude mcp add --scope user kb -- kb serve --vault ~/notes
 
 vault 自包含：配置、信号日志、报告都在 `.kb/` 里，跟着目录走。只有可重建的 `kb.db` 被 gitignore。
 
-两个容易踩的点：
+几个容易踩的点：
+
+- **多个关键词用空格分开（AND 语义）**。`kb search "业主 测试账号"` 找同时含两个词的笔记；不加空格的长词组按"连续出现"匹配，组合词大概率搜不到。
 
 - **`managed` 收窄 ≠ `exclude`**。想让某目录（如 `daily/`）"不受代谢管理、但它的引用算反链信号"，做法是把 `managed` 收窄到知识目录（如 `["knowledge/**/*.md"]`），别把 daily 放进 `exclude`——被 exclude 的文件连反链扫描都会跳过。
 - **wiki 链接按完整文件名匹配**。`kb add` 生成的文件带日期前缀（`2026-07-08-标题.md`），手写 `[[链接]]` 时要用完整名（Obsidian 的自动补全默认就是全名，不受影响）。
