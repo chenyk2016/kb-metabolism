@@ -2,7 +2,7 @@
 
 **一个会遗忘的知识库。**
 
-[English →](README.en.md)
+[文档站](https://chenyk2016.github.io/kb-metabolism/) · [协议规范](https://chenyk2016.github.io/kb-metabolism/protocol/spec) · [English →](README.en.md)
 
 大多数个人知识库只有"进"。AI 时代收藏成本趋近于零，库越塞越多，人无法通读，也没人敢清理。kb-metabolism 在你已有的 Markdown 文件之上，补齐缺失的两个器官——**消化**（把资料变成可复述的判断）和**排泄**（把失去用途的内容排出去）。
 

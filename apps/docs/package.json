@@ -1,0 +1,16 @@
+{
+  "name": "@kb/docs",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "kb-metabolism 文档站（VitePress）",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "typecheck": "echo 'docs: no typecheck'"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.0"
+  }
+}

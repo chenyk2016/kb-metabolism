@@ -5,3 +5,5 @@ data/
 test-results/
 playwright-report/
 apps/web/e2e/.vault-path
+apps/docs/.vitepress/cache/
+apps/docs/.vitepress/dist/

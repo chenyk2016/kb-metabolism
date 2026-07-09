@@ -8,7 +8,9 @@
     "test": "pnpm -r test",
     "smoke": "node packages/cli/dist/smoke.js",
     "dev": "pnpm --parallel -r dev",
-    "test:e2e": "pnpm --filter @kb/web test:e2e"
+    "test:e2e": "pnpm --filter @kb/web test:e2e",
+    "docs:dev": "pnpm --filter @kb/docs dev",
+    "docs:build": "pnpm --filter @kb/docs build"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
