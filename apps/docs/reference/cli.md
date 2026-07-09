@@ -20,6 +20,7 @@
 | `kb review [报告]` | 交互式过堂（y=处决 n=赦免 q=退出），结束自动执行 |
 | `kb execute <报告>` | 掩埋名单中已勾选条目（git mv，可反悔） |
 | `kb chew [--emit] [--limit n]` | 消化：把高频 L1 提炼成 L0（AI 拆解，人合成） |
+| `kb chew --judgment <判断> --use-when <用途> --source <路径...>` | 非交互落 L0（agent 转录主人原话的唯一合法通道，含 L0 上限检查） |
 | `kb triage [--emit] [--limit n] [-y]` | 给未分诊笔记定层（provider: human/anthropic/agent） |
 
 `--emit`：不做判断，输出自包含提示词交给任意接入的 agent。
@@ -30,9 +31,10 @@
 |---|---|
 | `kb doctor [--save]` | 体检：年龄分层/孤儿率/吸收率/语义层（不依赖信号，新库即刻可用） |
 | `kb stats` | 库健康度速览 |
-| `kb index` | 重建派生索引（笔记/反链/FTS/增量向量） |
+| `kb index` | 重建派生索引（笔记/反链/FTS/增量向量），顺带给缺 `kb_id` 的笔记自愈补发身份 |
 | `kb init [--managed <globs>] [--git] [-y]` | 任意目录变成知识库（默认交互四问） |
 | `kb migrate --from <旧db>` | 从旧版 sqlite 导入访问日志 |
+| `kb migrate-signals` | 给日志历史行补 `kb_id`（自动备份）——目录大整理前务必先跑一次 |
 
 ## 接入
 

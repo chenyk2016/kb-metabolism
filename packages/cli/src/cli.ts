@@ -501,8 +501,31 @@ program
   .description("消化：把反复被使用的 L1 资料提炼成 L0 判断（AI 拆解，人合成）")
   .option("--emit", "输出给 agent 的消化协助提示")
   .option("--limit <n>", "最多消化 n 篇")
+  .option("--judgment <text>", "非交互落盘：主人亲口说出的一句判断（须与 --use-when、--source 同用）")
+  .option("--use-when <text>", "非交互落盘：什么时候会再用到")
+  .option("--source <paths...>", "非交互落盘：证据源笔记路径（相对 vault 根）")
   .action(async (opts) => {
     const v = vault();
+
+    // 非交互落盘：agent 转录主人原话的唯一合法通道——复用 createL0（L0 上限 + 证据链 + kb_digested 闭环）
+    if (opts.judgment || opts.useWhen || opts.source) {
+      if (!opts.judgment || !opts.useWhen || !opts.source?.length) {
+        console.error("--judgment、--use-when、--source 三者必须同时提供（判断与用途必须出自主人原话）");
+        process.exit(1);
+      }
+      for (const p of opts.source as string[]) {
+        if (!fs.existsSync(path.join(v.root, p))) {
+          console.error(`证据源不存在：${p}（路径相对 vault 根）`);
+          process.exit(1);
+        }
+      }
+      const rel = createL0(v, opts.judgment, opts.useWhen, opts.source);
+      const r = await runIndex(v);
+      console.log(`✅ L0 已生成：${rel}（源资料已标记 kb_digested，之后可自然衰亡）`);
+      console.log("层级分布：", r.tiers);
+      return;
+    }
+
     await runIndex(v);
     let candidates = buildChewCandidates(v);
     if (opts.limit) candidates = candidates.slice(0, parseInt(opts.limit, 10));

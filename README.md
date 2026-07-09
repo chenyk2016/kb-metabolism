@@ -159,14 +159,16 @@ vault 自包含：配置、信号日志、报告都在 `.kb/` 里，跟着目录
 | `kb search <词>` / `kb read <路径>` | 检索门（记信号） |
 | `kb digest [--emit] [--no-llm]` | 重建索引 + 法医 + 消化名单 + 可选 LLM 提案 + 体检留档 |
 | `kb chew [--emit]` | **消化**：把反复被读的 L1 提炼成 L0 判断（AI 拆解，人合成） |
+| `kb chew --judgment <判断> --use-when <用途> --source <路径...>` | 非交互落 L0（agent 转录主人原话的唯一合法通道，含上限检查） |
 | `kb review [报告]` | **交互式过堂**：逐条 y/n 判决，完了自动执行 |
 | `kb execute <报告>` | 掩埋勾选项（可反悔） |
 | `kb doctor [--save]` | **体检**：年龄分层/孤儿率/诊断——不依赖信号，新库第一分钟即可用 |
 | `kb stats` | 库健康度（距上次消化超一周会在这里和门上提醒你） |
 | `kb ui [--port 7317] [--no-open]` | **管理台**：判决台 + 体检室（只绑 127.0.0.1） |
 | `kb serve` | MCP 门（stdio） |
-| `kb index` | 重建派生索引 |
+| `kb index` | 重建派生索引（顺带自愈补发 `kb_id` 身份） |
 | `kb migrate --from <旧db>` | 导入旧版 sqlite 访问日志 |
+| `kb migrate-signals` | 历史信号补 `kb_id`（自动备份）——移动/重组笔记前跑一次，续命记录跟人走 |
 
 ## 每周节律
 

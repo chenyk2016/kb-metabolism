@@ -37,6 +37,10 @@ npx skills add https://github.com/chenyk2016/kb-metabolism --skill kb-metabolism
 
 两条通道殊途同归：都只是把 `--emit` 生成的任务提示递给 agent——**协议知识的唯一真相永远在产品里**，skill 与 prompt 均为触发器，不携带任何可漂移的规则。
 
+### 零终端：全生命周期都可以只说话
+
+装好官方 skill 后，从建库到过堂全程无需碰终端——agent 是手，产品是笼子，你只负责说意图和判决：建库（对话问齐参数）、分诊、周消化、过堂（"1、3 处决，2 留下"，agent 只勾你逐字点名的）、提炼（判断由你亲口说出，agent 用 `kb chew --judgment` 转录落盘，带 L0 上限检查）。唯一例外是 `kb key set`——密钥不进对话历史，这一行值得你亲手敲。
+
 ## hooks：门的第二形态（推荐）
 
 MCP 工具靠 agent 自觉调用——它有时不会去搜。hooks 把"走门"变成管道的必然：
