@@ -85,6 +85,12 @@ claude mcp add --scope user kb -- kb serve --vault ~/notes
 npx skills add https://github.com/chenyk2016/kb-metabolism --skill kb-metabolism
 ```
 
+姊妹技能 `kb-structure`（目录结构守门）：约束笔记安放、拦截顶层膨胀与主题目录、编排移动后的 `kb index` 认亲。规则住库内 `90-system/目录规范.md`（技能附模板可实例化）——目录管"住哪"归它，生死归 kb：
+
+```bash
+npx skills add https://github.com/chenyk2016/kb-metabolism --skill kb-structure
+```
+
 ### 消化与吸收（完整的代谢）
 
 排泄只是手段，消化才是目的——人们要的不是干净的库，是"存的东西变成判断力"：
