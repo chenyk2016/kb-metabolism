@@ -44,6 +44,10 @@ export type DoctorReport = {
   oldest: Array<{ path: string; days: number }>;
   reads7d: number;
   searches7d: number;
+  /** 近 30 天被 kb_cite 引用进产出的独立笔记数（吸收） */
+  cited30d: number;
+  /** 被创作目录（outputDirs）引用的独立笔记数（铁证级吸收） */
+  outputRefs: number;
   hasSignals: boolean;
 };
 
@@ -78,12 +82,22 @@ export function runDoctor(vault: Vault): DoctorReport {
   let reads7d = 0;
   let searches7d = 0;
   const weekAgo = new Date(now - 7 * 86400000).toISOString();
+  const monthAgo = new Date(now - 30 * 86400000).toISOString();
+  const cited30d = new Set<string>();
   const signals = readSignals(root);
   for (const s of signals) {
+    if (s.tool === "kb_cite" && s.path && s.ts >= monthAgo) cited30d.add(s.path);
     if (s.ts < weekAgo) continue;
     if (s.tool === "kb_read") reads7d++;
     if (s.tool === "kb_search") searches7d++;
   }
+  const db2 = openDb(root);
+  const outputRefs = (
+    db2.prepare("SELECT COUNT(DISTINCT dst) AS c FROM links WHERE from_output = 1").get() as {
+      c: number;
+    }
+  ).c;
+  db2.close();
 
   return {
     total: notes.length,
@@ -100,6 +114,8 @@ export function runDoctor(vault: Vault): DoctorReport {
       .map(({ n, days }) => ({ path: n.path, days })),
     reads7d,
     searches7d,
+    cited30d: cited30d.size,
+    outputRefs,
     hasSignals: signals.length > 0,
   };
 }
@@ -130,6 +146,12 @@ export function formatDoctor(r: DoctorReport): string {
     r.hasSignals
       ? `门流量（近 7 天）：读取 ${r.reads7d} 次 · 检索 ${r.searches7d} 次`
       : `门流量：尚无信号——从现在起检索走 kb_search/kb_read，90 天后法医就有读取证据可用`
+  );
+  const absorbed = r.cited30d + r.outputRefs;
+  lines.push(
+    absorbed > 0
+      ? `吸收：近 30 天 ${r.cited30d} 条被引用进产出${r.outputRefs > 0 ? `，另有 ${r.outputRefs} 条被创作库长期引用` : ""}（吸收率 ${pct(absorbed)}）——喂养了创造的部分`
+      : `吸收：还没有笔记被引用进产出——存了不用，就只是图书管理员不是创作者`
   );
 
   const deadWeight = r.dormant.length + r.decaying.length;

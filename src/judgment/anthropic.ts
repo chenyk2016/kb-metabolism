@@ -76,6 +76,41 @@ export async function anthropicTriage(
     });
 }
 
+const JUDGMENT_SCHEMA = {
+  type: "object",
+  properties: {
+    judgments: { type: "array", items: { type: "string" } },
+  },
+  required: ["judgments"],
+  additionalProperties: false,
+} as const;
+
+/**
+ * 消化酶：把一篇资料拆解成 2-3 条候选判断句，供人改写确认。
+ * AI 只拆解不合成——最终判断必须出自人之口，否则是把反思外包（病根本身）。
+ */
+export async function anthropicChew(
+  vault: Vault,
+  note: { title: string; head: string; useWhen: string | null }
+): Promise<string[]> {
+  const response = await client().messages.create({
+    model: vault.config.judgment.digestModel,
+    max_tokens: 2048,
+    thinking: { type: "adaptive" },
+    system:
+      "你是个人知识库的消化酶。把一篇资料拆解成 2-3 条候选判断句，供主人改写确认。判断句的标准：一句话、可复述、面向未来的决策（'下次遇到 X 就 Y'的形状），不是内容摘要。用资料本身的语言书写。",
+    output_config: { format: { type: "json_schema", schema: JUDGMENT_SCHEMA } },
+    messages: [
+      {
+        role: "user",
+        content: `标题：${note.title}\n存入时声明的用途：${note.useWhen ?? "（未声明）"}\n正文开头：\n${note.head}`,
+      },
+    ],
+  });
+  const text = response.content.find((b) => b.type === "text")?.text ?? "{}";
+  return (JSON.parse(text) as { judgments: string[] }).judgments.slice(0, 3);
+}
+
 /** digest proposals (merge/promote/evict) — worth the top model */
 export async function anthropicDigest(
   vault: Vault,

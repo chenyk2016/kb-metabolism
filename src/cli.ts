@@ -22,7 +22,8 @@ import { serve } from "./mcp/server.js";
 import { humanTriage, confirm, LineReader, type UntriagedNote } from "./judgment/human.js";
 import { runWizard, isGitRepo, type WizardResult } from "./wizard.js";
 import { hookPrompt, hookSession, installHooks, uninstallHooks, buildHookConfig } from "./hooks.js";
-import { emitTriagePrompt, emitDigestPrompt } from "./judgment/agent.js";
+import { emitTriagePrompt, emitDigestPrompt, emitChewPrompt } from "./judgment/agent.js";
+import { buildChewCandidates, saveChewList, createL0 } from "./core/chew.js";
 import type { TierDecision, Vault } from "./core/types.js";
 
 const program = new Command();
@@ -331,9 +332,85 @@ program
     }
 
     const health = saveDoctorReport(v, runDoctor(v));
+    const chews = buildChewCandidates(v);
+    if (chews.length > 0) {
+      const chewFile = saveChewList(v, chews);
+      console.log(`消化名单：${chews.length} 篇高频资料值得提炼成判断 → ${chewFile}（kb chew 逐条消化）`);
+    }
     console.log("\n" + formatStats(getStats(v)));
     console.log(`体检已留档：${health}（kb doctor 随时查看）`);
     console.log(`\n过堂审批：kb review（或手工勾选后 kb execute ${report}）`);
+  });
+
+program
+  .command("chew")
+  .description("消化：把反复被使用的 L1 资料提炼成 L0 判断（AI 拆解，人合成）")
+  .option("--emit", "输出给 agent 的消化协助提示")
+  .option("--limit <n>", "最多消化 n 篇")
+  .action(async (opts) => {
+    const v = vault();
+    await runIndex(v);
+    let candidates = buildChewCandidates(v);
+    if (opts.limit) candidates = candidates.slice(0, parseInt(opts.limit, 10));
+    if (candidates.length === 0) {
+      console.log("没有达到消化阈值的资料（近 90 天被读 ≥2 次的 L1）。继续走门使用，营养自然浮现。");
+      return;
+    }
+    if (opts.emit || v.config.judgment.provider === "agent") {
+      console.log(emitChewPrompt(v, candidates));
+      return;
+    }
+
+    console.log(`消化 ${candidates.length} 篇高频资料（AI 只拆解，判断由你说出）`);
+    const reader = new LineReader();
+    let made = 0;
+    try {
+      for (const [i, c] of candidates.entries()) {
+        console.log(`\n[${i + 1}/${candidates.length}] ${c.path}`);
+        console.log(`  ${c.title}｜近 90 天读 ${c.reads90d} 次`);
+        if (c.useWhen) console.log(`  存入时说的用途：${c.useWhen}——现在还成立吗？`);
+        console.log(`  ${c.head}…`);
+
+        if (v.config.judgment.provider === "anthropic") {
+          try {
+            const { anthropicChew } = await import("./judgment/anthropic.js");
+            const props = await anthropicChew(v, c);
+            if (props.length > 0) {
+              console.log(`  消化酶拆解的候选判断（供改写，别照抄）：`);
+              props.forEach((p, j) => console.log(`   ${String.fromCharCode(97 + j)}. ${p}`));
+            }
+          } catch (err) {
+            console.error(`  （拆解不可用：${err instanceof Error ? err.message : err}）`);
+          }
+        }
+
+        const judgment = (
+          await reader.ask("  用你的话说出要留下的判断（一句话；回车=跳过）> ")
+        ).trim();
+        if (!judgment) continue;
+        const useWhen = (await reader.ask("  什么时候会再用到？> ")).trim();
+        if (!useWhen) {
+          console.log("  没有用途就不值得进 L0——跳过。");
+          continue;
+        }
+        try {
+          const rel = createL0(v, judgment, useWhen, [c.path]);
+          made++;
+          console.log(`  ✅ L0 已生成：${rel}（源资料已标记 kb_digested，之后可自然衰亡）`);
+        } catch (err) {
+          console.error(`  ${err instanceof Error ? err.message : err}`);
+          break;
+        }
+      }
+    } finally {
+      reader.close();
+    }
+    if (made > 0) {
+      const r = await runIndex(v);
+      console.log(`\n本次消化产出 ${made} 条 L0 判断；层级分布：`, r.tiers);
+    } else {
+      console.log("\n本次没有产出判断。");
+    }
   });
 
 program

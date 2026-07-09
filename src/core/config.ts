@@ -16,6 +16,8 @@ export const DEFAULT_CONFIG: VaultConfig = {
     triageModel: "claude-haiku-4-5",
     digestModel: "claude-opus-4-8",
   },
+  outputDirs: [],
+  citeDays: 180,
 };
 
 export function kbDir(root: string): string {

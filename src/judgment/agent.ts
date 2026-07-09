@@ -24,6 +24,23 @@ ${notes.map((n) => `- ${n.path} — ${n.title}`).join("\n")}
 完成后运行 \`kb index --vault ${vault.root}\`，汇报层级分布；拿不准的条目列出来交给主人拍板。`;
 }
 
+export function emitChewPrompt(
+  vault: Vault,
+  candidates: Array<{ path: string; title: string; reads90d: number }>
+): string {
+  return `# 任务：协助主人消化知识库 ${vault.root} 中的 ${candidates.length} 篇高频资料
+
+这些 L1 资料近 90 天被反复读取——有营养，值得提炼成 L0 判断。你的角色是**消化酶不是胃**：
+
+对每篇：读全文，拆解出 2-3 条候选判断句（一句话、可复述、"下次遇到 X 就 Y"的决策形状，不是摘要），
+连同"存入时声明的用途是否仍成立"的追问，一起呈给主人。
+**由主人用自己的话说出最终判断**——你绝不代替合成、绝不直接创建 L0。
+主人确认后：运行 \`kb chew\`（或按其确认逐条执行 createL0 等价操作），源资料会自动标记 kb_digested。
+
+资料清单：
+${candidates.map((c) => `- ${c.path} — ${c.title}（近 90 天读 ${c.reads90d} 次）`).join("\n")}`;
+}
+
 export function emitDigestPrompt(vault: Vault, reportFile: string): string {
   return `# 任务：知识库 ${vault.root} 的每周消化审查
 

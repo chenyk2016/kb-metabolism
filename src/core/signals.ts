@@ -27,14 +27,19 @@ export function readSignals(root: string): Signal[] {
   return out;
 }
 
-/** most recent read timestamp per note path */
-export function lastReadByPath(root: string): Map<string, string> {
+/** most recent timestamp per note path for a given tool */
+export function lastByTool(root: string, tool: string): Map<string, string> {
   const map = new Map<string, string>();
   for (const s of readSignals(root)) {
-    if (s.tool === "kb_read" && s.path) {
+    if (s.tool === tool && s.path) {
       const prev = map.get(s.path);
       if (!prev || s.ts > prev) map.set(s.path, s.ts);
     }
   }
   return map;
+}
+
+/** most recent read timestamp per note path */
+export function lastReadByPath(root: string): Map<string, string> {
+  return lastByTool(root, "kb_read");
 }

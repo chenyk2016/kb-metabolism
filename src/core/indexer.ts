@@ -119,14 +119,19 @@ export async function runIndex(vault: Vault): Promise<IndexResult> {
   for (const n of managed) byBasename.set(path.basename(n.rel, ".md"), n.rel);
 
   // backlink scan covers the whole vault — a daily note referencing a managed
-  // note counts as a usage signal
-  const linkRows: Array<{ src: string; dst: string }> = [];
+  // note counts as a usage signal; a reference from an output dir (创作目录)
+  // is the strongest absorption evidence
+  const isOutput = picomatch(
+    (config.outputDirs ?? []).map((d) => `${d.replace(/\/+$/, "")}/**`)
+  );
+  const linkRows: Array<{ src: string; dst: string; from_output: number }> = [];
   for (const file of allFiles) {
     const rel = path.relative(root, file);
     const raw = fs.readFileSync(file, "utf8");
+    const fromOutput = (config.outputDirs ?? []).length > 0 && isOutput(rel) ? 1 : 0;
     for (const target of extractLinkTargets(raw)) {
       const dst = byBasename.get(target);
-      if (dst && dst !== rel) linkRows.push({ src: rel, dst });
+      if (dst && dst !== rel) linkRows.push({ src: rel, dst, from_output: fromOutput });
     }
   }
 
@@ -143,13 +148,13 @@ export async function runIndex(vault: Vault): Promise<IndexResult> {
       "INSERT INTO notes_fts (path, title, body) VALUES (?, ?, ?)"
     );
     const insLink = db.prepare(
-      "INSERT OR IGNORE INTO links (src, dst) VALUES (?, ?)"
+      "INSERT OR REPLACE INTO links (src, dst, from_output) VALUES (?, ?, ?)"
     );
     for (const n of managed) {
       insNote.run(n);
       insFts.run(n.rel, n.title, n.body);
     }
-    for (const l of linkRows) insLink.run(l.src, l.dst);
+    for (const l of linkRows) insLink.run(l.src, l.dst, l.from_output);
   });
   rebuild();
 

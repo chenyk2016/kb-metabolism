@@ -27,6 +27,10 @@ export type VaultConfig = {
   };
   /** 语义检索插件；不配置 = 纯字面检索，零依赖不变量不破 */
   embedding?: EmbeddingConfig;
+  /** 创作目录（相对 vault 根）：其中对管理笔记的引用 = 铁证级吸收信号 */
+  outputDirs?: string[];
+  /** 被引用（kb_cite）的免死窗口，默认 180 天（读取是 decayDays=90） */
+  citeDays?: number;
 };
 
 export type Vault = {

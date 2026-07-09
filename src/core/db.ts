@@ -41,5 +41,11 @@ export function openDb(root: string): Database.Database {
     );
     CREATE INDEX IF NOT EXISTS idx_links_dst ON links(dst);
   `);
+  try {
+    // 旧库迁移：反链来源标记（1 = 来自创作目录 outputDirs，铁证级吸收）
+    db.exec("ALTER TABLE links ADD COLUMN from_output INTEGER NOT NULL DEFAULT 0");
+  } catch {
+    // 列已存在
+  }
   return db;
 }
