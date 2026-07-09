@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { openDb } from "./db.js";
+import { openDb, notePathIdMap } from "./db.js";
 import { reportsDir } from "./config.js";
-import { lastReadByPath, lastByTool } from "./signals.js";
+import { lastByNoteId } from "./signals.js";
 import type { NoteRow, Vault } from "./types.js";
 
 /** last touched via git history (if the vault is a repo), else file mtime */
@@ -46,8 +46,9 @@ export function runCoroner(vault: Vault): CoronerResult {
     .prepare("SELECT * FROM notes WHERE tier IS NULL OR tier != 'L0'")
     .all() as NoteRow[];
   const backlinkStmt = db.prepare("SELECT COUNT(*) AS c FROM links WHERE dst = ?");
-  const lastRead = lastReadByPath(root);
-  const lastCite = lastByTool(root, "kb_cite");
+  const pathToId = notePathIdMap(db);
+  const lastRead = lastByNoteId(root, "kb_read", pathToId);
+  const lastCite = lastByNoteId(root, "kb_cite", pathToId);
   const citeDays = config.citeDays ?? 180;
 
   const candidates: Candidate[] = [];
@@ -59,10 +60,10 @@ export function runCoroner(vault: Vault): CoronerResult {
       reasons.push(`inbox 已过期（${n.expires}）`);
     } else {
       const backlinks = (backlinkStmt.get(n.path) as { c: number }).c;
-      const read = lastRead.get(n.path);
+      const read = n.id ? lastRead.get(n.id) : undefined;
       const readAlive = read && days(new Date(read)) <= config.decayDays;
       // 被引用进产出是最高等级存活证据——免死窗口是读取的两倍
-      const cite = lastCite.get(n.path);
+      const cite = n.id ? lastCite.get(n.id) : undefined;
       const citeAlive = cite && days(new Date(cite)) <= citeDays;
       const age = days(lastTouched(root, n.path));
       if (backlinks === 0 && !readAlive && !citeAlive && age > config.decayDays) {

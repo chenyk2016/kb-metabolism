@@ -78,8 +78,6 @@ export async function syncEmbeddings(
   const cfg = vault.config.embedding;
   if (!cfg) return { embedded: 0, total: 0 };
 
-  db.prepare("DELETE FROM embeddings WHERE path NOT IN (SELECT path FROM notes)").run();
-
   const notes = db
     .prepare(
       `SELECT n.path AS path, n.title AS title, n.hash AS hash, f.body AS body
@@ -92,6 +90,27 @@ export async function syncEmbeddings(
       (r) => [r.path, r.hash]
     )
   );
+
+  // 身份复用：路径变了但内容没变（纯移动/改名）→ 旧向量行改绑新路径，零重算
+  const notePaths = new Set(notes.map((n) => n.path));
+  const orphansByHash = new Map<string, string[]>();
+  for (const [p, h] of have) {
+    if (notePaths.has(p)) continue;
+    const list = orphansByHash.get(h) ?? [];
+    list.push(p);
+    orphansByHash.set(h, list);
+  }
+  const rebind = db.prepare("UPDATE embeddings SET path = ? WHERE path = ?");
+  for (const n of notes) {
+    if (have.has(n.path)) continue;
+    const old = orphansByHash.get(n.hash)?.pop();
+    if (old) {
+      rebind.run(n.path, old);
+      have.set(n.path, n.hash);
+      have.delete(old);
+    }
+  }
+  db.prepare("DELETE FROM embeddings WHERE path NOT IN (SELECT path FROM notes)").run();
   const stale = notes.filter((n) => have.get(n.path) !== n.hash);
   if (stale.length > 0) {
     const { requireEmbeddingKey } = await import("./secrets.js");

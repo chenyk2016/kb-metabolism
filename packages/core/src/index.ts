@@ -6,6 +6,7 @@
 export * from "./types.js";
 export * from "./config.js";
 export * from "./db.js";
+export * from "./identity.js";
 export * from "./signals.js";
 export * from "./indexer.js";
 export * from "./search.js";

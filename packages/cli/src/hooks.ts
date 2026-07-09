@@ -33,12 +33,21 @@ export async function hookPrompt(vault: Vault): Promise<void> {
 
   const db = openDb(vault.root);
   const hits = hookSearch(db, prompt, 3);
+  const idStmt = db.prepare("SELECT id FROM notes WHERE path = ?");
+  const hitIds = hits.map(
+    (h) => (idStmt.get(h.path) as { id: string | null } | undefined)?.id ?? undefined
+  );
   db.close();
   if (hits.length === 0) return;
 
-  for (const h of hits) {
-    appendSignal(vault.root, { tool: "kb_inject", query: prompt.slice(0, 80), path: h.path });
-  }
+  hits.forEach((h, i) => {
+    appendSignal(vault.root, {
+      tool: "kb_inject",
+      query: prompt.slice(0, 80),
+      path: h.path,
+      id: hitIds[i],
+    });
+  });
 
   const lines = [
     "<kb-context>",
@@ -58,14 +67,26 @@ export async function hookSession(vault: Vault): Promise<void> {
 
   const lines = ["<kb-status>", `个人知识库：${s.total} 条（L0 ${s.l0}/${s.l0Cap}）——检索走 kb_search，读取走 kb_read。`];
 
+  // 显示当前路径：信号按 id 认领，笔记移动后旧行也能指到新家
+  const db = openDb(vault.root);
+  const idToPath = new Map<string, string>();
+  for (const r of db.prepare("SELECT path, id FROM notes WHERE id IS NOT NULL").all() as Array<{
+    path: string;
+    id: string;
+  }>) {
+    idToPath.set(r.id, r.path);
+  }
+  db.close();
+
   const recentReads: string[] = [];
   const seen = new Set<string>();
   for (const sig of readSignals(vault.root).reverse()) {
-    if (sig.tool === "kb_read" && sig.path && !seen.has(sig.path)) {
-      seen.add(sig.path);
-      recentReads.push(sig.path);
-      if (recentReads.length >= 3) break;
-    }
+    if (sig.tool !== "kb_read") continue;
+    const display = (sig.id && idToPath.get(sig.id)) || sig.path;
+    if (!display || seen.has(display)) continue;
+    seen.add(display);
+    recentReads.push(display);
+    if (recentReads.length >= 3) break;
   }
   if (recentReads.length > 0) lines.push(`最近读过：${recentReads.join("、")}`);
 

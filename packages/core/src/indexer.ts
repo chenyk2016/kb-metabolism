@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import matter from "gray-matter";
 import picomatch from "picomatch";
 import { openDb } from "./db.js";
+import { newId, normalizeFmDates } from "./identity.js";
 import type { Vault } from "./types.js";
 
 const ALWAYS_SKIP = new Set([".kb", ".git", ".obsidian", "node_modules"]);
@@ -57,6 +58,8 @@ export type IndexResult = {
   tiers: Record<string, number>;
   /** 本次增量计算的向量数（未配置 embedding 时恒为 0） */
   embedded: number;
+  /** 本次自愈补发的 kb_id 数（缺失或撞号重发） */
+  idsAssigned: number;
 };
 
 export async function runIndex(vault: Vault): Promise<IndexResult> {
@@ -66,6 +69,7 @@ export async function runIndex(vault: Vault): Promise<IndexResult> {
 
   type Managed = {
     rel: string;
+    id: string | null;
     title: string;
     tier: string | null;
     use_when: string | null;
@@ -79,22 +83,44 @@ export async function runIndex(vault: Vault): Promise<IndexResult> {
 
   const managed: Managed[] = [];
   const allFiles: string[] = [];
+  const seenIds = new Set<string>();
+  let idsAssigned = 0;
   for (const file of walkMd(root, root)) {
     const rel = path.relative(root, file);
     if (isExcluded(rel)) continue;
     allFiles.push(file);
     if (!isManaged(rel)) continue;
 
-    const raw = fs.readFileSync(file, "utf8");
+    let raw = fs.readFileSync(file, "utf8");
     let fm: Record<string, unknown> = {};
     let body = raw;
+    let fmOk = true;
     try {
       const parsed = matter(raw);
       fm = parsed.data ?? {};
       body = parsed.content;
     } catch {
       // broken frontmatter is treated as no frontmatter
+      fmOk = false;
     }
+
+    // 身份自愈：缺 kb_id 补发；撞号（文件被复制）后到者重发
+    let id = typeof fm.kb_id === "string" && fm.kb_id.trim() ? fm.kb_id.trim() : null;
+    if (fmOk && (!id || seenIds.has(id))) {
+      id = newId();
+      try {
+        const data = { ...fm, kb_id: id };
+        normalizeFmDates(data);
+        raw = matter.stringify(body, data);
+        fs.writeFileSync(file, raw);
+        fm = data;
+        idsAssigned++;
+      } catch {
+        id = null; // 写回失败不阻断索引，该笔记本轮无身份
+      }
+    }
+    if (id) seenIds.add(id);
+
     const stat = fs.statSync(file);
     const str = (v: unknown) => {
       if (v == null) return null;
@@ -103,6 +129,7 @@ export async function runIndex(vault: Vault): Promise<IndexResult> {
     };
     managed.push({
       rel,
+      id,
       title: extractTitle(fm, body, file),
       tier: str(fm.kb_tier),
       use_when: str(fm.kb_use_when),
@@ -141,8 +168,8 @@ export async function runIndex(vault: Vault): Promise<IndexResult> {
     db.prepare("DELETE FROM links").run();
     db.prepare("DELETE FROM notes_fts").run();
     const insNote = db.prepare(
-      `INSERT INTO notes (path, title, tier, use_when, triaged, expires, created, modified, hash)
-       VALUES (@rel, @title, @tier, @use_when, @triaged, @expires, @created, @modified, @hash)`
+      `INSERT INTO notes (path, id, title, tier, use_when, triaged, expires, created, modified, hash)
+       VALUES (@rel, @id, @title, @tier, @use_when, @triaged, @expires, @created, @modified, @hash)`
     );
     const insFts = db.prepare(
       "INSERT INTO notes_fts (path, title, body) VALUES (?, ?, ?)"
@@ -180,5 +207,5 @@ export async function runIndex(vault: Vault): Promise<IndexResult> {
   }
 
   db.close();
-  return { notes: managed.length, links: linkCount, tiers, embedded };
+  return { notes: managed.length, links: linkCount, tiers, embedded, idsAssigned };
 }

@@ -42,6 +42,8 @@ export type Vault = {
 
 export type NoteRow = {
   path: string;
+  /** 稳定身份（frontmatter kb_id）；索引自愈补发，正常情况下非空 */
+  id: string | null;
   title: string;
   tier: string | null;
   use_when: string | null;
@@ -56,7 +58,10 @@ export type Signal = {
   ts: string;
   tool: string;
   query?: string;
+  /** 记录时刻的路径——给人读日志用；认领笔记以 id 为准 */
   path?: string;
+  /** 笔记稳定身份（kb_id）——移动/改名后信号仍可认领 */
+  id?: string;
 };
 
 export type TierDecision = {

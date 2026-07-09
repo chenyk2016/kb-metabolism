@@ -27,19 +27,30 @@ export function readSignals(root: string): Signal[] {
   return out;
 }
 
-/** most recent timestamp per note path for a given tool */
-export function lastByTool(root: string, tool: string): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const s of readSignals(root)) {
-    if (s.tool === tool && s.path) {
-      const prev = map.get(s.path);
-      if (!prev || s.ts > prev) map.set(s.path, s.ts);
-    }
-  }
-  return map;
+/**
+ * 信号认领：以笔记稳定身份（kb_id）为键。
+ * 新信号行自带 id；无 id 的历史行按"记录时路径 = 当前路径"经 pathToId 兜底认领
+ * （笔记移动后历史行失联——用 `kb migrate-signals` 一次性补 id 即可根治）。
+ */
+export function signalNoteKey(s: Signal, pathToId: Map<string, string>): string | null {
+  if (s.id) return s.id;
+  if (s.path) return pathToId.get(s.path) ?? null;
+  return null;
 }
 
-/** most recent read timestamp per note path */
-export function lastReadByPath(root: string): Map<string, string> {
-  return lastByTool(root, "kb_read");
+/** most recent timestamp per note id for a given tool */
+export function lastByNoteId(
+  root: string,
+  tool: string,
+  pathToId: Map<string, string>
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const s of readSignals(root)) {
+    if (s.tool !== tool) continue;
+    const key = signalNoteKey(s, pathToId);
+    if (!key) continue;
+    const prev = map.get(key);
+    if (!prev || s.ts > prev) map.set(key, s.ts);
+  }
+  return map;
 }

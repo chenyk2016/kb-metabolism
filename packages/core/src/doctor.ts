@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { openDb } from "./db.js";
+import { openDb, notePathIdMap } from "./db.js";
 import { reportsDir } from "./config.js";
-import { readSignals } from "./signals.js";
+import { readSignals, signalNoteKey } from "./signals.js";
 import { resolveEmbeddingKey, secretsTrackedByGit } from "./secrets.js";
 import type { NoteRow, Vault } from "./types.js";
 
@@ -67,6 +67,7 @@ export function runDoctor(vault: Vault): DoctorReport {
     (db.prepare("SELECT DISTINCT dst FROM links").all() as Array<{ dst: string }>).map((r) => r.dst)
   );
   const vectors = (db.prepare("SELECT COUNT(*) AS c FROM embeddings").get() as { c: number }).c;
+  const pathToId = notePathIdMap(db);
   db.close();
 
   const commits = lastCommitMap(root);
@@ -92,10 +93,13 @@ export function runDoctor(vault: Vault): DoctorReport {
   let searches7d = 0;
   const weekAgo = new Date(now - 7 * 86400000).toISOString();
   const monthAgo = new Date(now - 30 * 86400000).toISOString();
-  const cited30d = new Set<string>();
+  const cited30d = new Set<string>(); // 键 = 笔记 id（历史 path 行经映射兜底）
   const signals = readSignals(root);
   for (const s of signals) {
-    if (s.tool === "kb_cite" && s.path && s.ts >= monthAgo) cited30d.add(s.path);
+    if (s.tool === "kb_cite" && s.ts >= monthAgo) {
+      const key = signalNoteKey(s, pathToId);
+      if (key) cited30d.add(key);
+    }
     if (s.ts < weekAgo) continue;
     if (s.tool === "kb_read") reads7d++;
     if (s.tool === "kb_search") searches7d++;

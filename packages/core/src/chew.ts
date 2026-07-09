@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
-import { openDb } from "./db.js";
+import { openDb, notePathIdMap } from "./db.js";
 import { reportsDir } from "./config.js";
-import { readSignals } from "./signals.js";
+import { readSignals, signalNoteKey } from "./signals.js";
 import { addNote } from "./capture.js";
 import type { NoteRow, Vault } from "./types.js";
 
@@ -28,19 +28,20 @@ export function buildChewCandidates(vault: Vault): ChewCandidate[] {
   const notes = db
     .prepare("SELECT * FROM notes WHERE tier = 'L1'")
     .all() as NoteRow[];
+  const pathToId = notePathIdMap(db);
   db.close();
 
   const cutoff = new Date(Date.now() - 90 * 86400000).toISOString();
-  const reads = new Map<string, number>();
+  const reads = new Map<string, number>(); // 键 = 笔记 id
   for (const s of readSignals(vault.root)) {
-    if (s.tool === "kb_read" && s.path && s.ts >= cutoff) {
-      reads.set(s.path, (reads.get(s.path) ?? 0) + 1);
-    }
+    if (s.tool !== "kb_read" || s.ts < cutoff) continue;
+    const key = signalNoteKey(s, pathToId);
+    if (key) reads.set(key, (reads.get(key) ?? 0) + 1);
   }
 
   const candidates: ChewCandidate[] = [];
   for (const n of notes) {
-    const r = reads.get(n.path) ?? 0;
+    const r = (n.id ? reads.get(n.id) : undefined) ?? 0;
     if (r < MIN_READS) continue;
     let digested = false;
     let head = "";

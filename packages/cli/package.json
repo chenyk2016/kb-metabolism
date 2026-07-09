@@ -1,6 +1,6 @@
 {
   "name": "kb-metabolism",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "一个会遗忘的知识库——文件为真相、带日志的检索门（MCP）、数据驱动的法医、人当法官。A knowledge base that knows how to forget.",
   "type": "module",
   "bin": {

@@ -16,6 +16,7 @@ export function openDb(root: string): Database.Database {
   db.exec(`
     CREATE TABLE IF NOT EXISTS notes (
       path     TEXT PRIMARY KEY,
+      id       TEXT,
       title    TEXT NOT NULL,
       tier     TEXT,
       use_when TEXT,
@@ -47,5 +48,23 @@ export function openDb(root: string): Database.Database {
   } catch {
     // 列已存在
   }
+  try {
+    // 旧库迁移：笔记稳定身份（frontmatter kb_id 的派生投影）
+    db.exec("ALTER TABLE notes ADD COLUMN id TEXT");
+  } catch {
+    // 列已存在
+  }
   return db;
+}
+
+/** 当前库的 path→id 映射——用于认领无 id 的历史信号行（"当时路径 = 当前路径"兜底） */
+export function notePathIdMap(db: Database.Database): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const r of db.prepare("SELECT path, id FROM notes WHERE id IS NOT NULL").all() as Array<{
+    path: string;
+    id: string;
+  }>) {
+    map.set(r.path, r.id);
+  }
+  return map;
 }

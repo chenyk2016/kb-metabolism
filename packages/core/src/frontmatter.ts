@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import matter from "gray-matter";
+import { newId } from "./identity.js";
 import type { TierDecision, Vault } from "./types.js";
 import path from "node:path";
 
@@ -10,6 +11,7 @@ export function applyDecision(vault: Vault, d: TierDecision): void {
   const parsed = matter(raw);
   const data: Record<string, unknown> = { ...parsed.data };
 
+  if (typeof data.kb_id !== "string" || !data.kb_id) data.kb_id = newId(); // 分诊兜底补身份
   data.kb_tier = d.tier;
   if (d.useWhen) data.kb_use_when = d.useWhen;
   else delete data.kb_use_when;

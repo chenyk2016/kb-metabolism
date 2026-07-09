@@ -10,7 +10,7 @@ import { initVault, loadVault, kbDir, signalLogPath } from "@kb/core";
 import { runIndex } from "@kb/core";
 import { openDb } from "@kb/core";
 import { hybridSearch, noResultHint } from "@kb/core";
-import { appendSignal } from "@kb/core";
+import { appendSignal, readNoteId, notePathIdMap } from "@kb/core";
 import { runCoroner } from "@kb/core";
 import { executeReport } from "@kb/core";
 import { addNote } from "@kb/core";
@@ -33,7 +33,7 @@ const program = new Command();
 program
   .name("kb")
   .description("kb-metabolism 知识代谢系统——一个会遗忘的知识库")
-  .version("0.3.0")
+  .version("0.4.0")
   .option("--vault <dir>", "知识库根目录（默认从当前目录向上找 .kb/）");
 
 function vault(): Vault {
@@ -304,6 +304,7 @@ program
   .action(async () => {
     const r = await runIndex(vault());
     console.log(`索引完成：${r.notes} 条笔记，${r.links} 条反链`);
+    if (r.idsAssigned > 0) console.log(`身份补发：${r.idsAssigned} 篇笔记获得 kb_id`);
     if (r.embedded > 0) console.log(`向量增量：${r.embedded} 条`);
     console.log("层级分布：", r.tiers);
   });
@@ -333,8 +334,60 @@ program
       console.error(`知识库里找不到：${notePath}`);
       process.exit(1);
     }
-    appendSignal(v.root, { tool: "kb_read", path: rel });
+    appendSignal(v.root, { tool: "kb_read", path: rel, id: readNoteId(abs) ?? undefined });
     process.stdout.write(fs.readFileSync(abs, "utf8"));
+  });
+
+program
+  .command("migrate-signals")
+  .description("历史信号迁移：给日志中按路径记账的旧行补上笔记身份 kb_id（原日志自动备份）——目录大整理前务必先跑")
+  .action(async () => {
+    const v = vault();
+    const r = await runIndex(v); // 先保证全库身份齐全
+    if (r.idsAssigned > 0) console.log(`身份补发：${r.idsAssigned} 篇笔记获得 kb_id`);
+
+    const file = signalLogPath(v.root);
+    if (!fs.existsSync(file)) {
+      console.log("没有信号日志，无需迁移");
+      return;
+    }
+    const db = openDb(v.root);
+    const pathToId = notePathIdMap(db);
+    db.close();
+
+    let migrated = 0;
+    let unresolved = 0;
+    let total = 0;
+    const out: string[] = [];
+    for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      total++;
+      try {
+        const s = JSON.parse(line);
+        if (!s.id && s.path) {
+          const id = pathToId.get(s.path);
+          if (id) {
+            s.id = id;
+            migrated++;
+          } else {
+            unresolved++; // 路径已不存在的历史记录，保留原样
+          }
+        }
+        out.push(JSON.stringify(s));
+      } catch {
+        out.push(line); // 坏行原样保留
+      }
+    }
+
+    let bak = `${file}.bak-${new Date().toISOString().slice(0, 10)}`;
+    for (let i = 2; fs.existsSync(bak); i++) {
+      bak = `${file}.bak-${new Date().toISOString().slice(0, 10)}-${i}`;
+    }
+    fs.copyFileSync(file, bak);
+    fs.writeFileSync(file + ".tmp", out.join("\n") + "\n");
+    fs.renameSync(file + ".tmp", file);
+    console.log(`迁移完成：${total} 行，补 id ${migrated} 行，无法解析 ${unresolved} 行`);
+    console.log(`备份：${bak}`);
   });
 
 program

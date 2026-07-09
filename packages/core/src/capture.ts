@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { newId } from "./identity.js";
 import type { Vault } from "./types.js";
 
 export type AddOptions = {
@@ -36,6 +37,7 @@ export function addNote(vault: Vault, opts: AddOptions): string {
   }
 
   const data: Record<string, unknown> = {
+    kb_id: newId(), // 出生即有身份——信号认领与路径解耦
     kb_tier: tier,
     kb_triaged: new Date().toISOString().slice(0, 10),
   };

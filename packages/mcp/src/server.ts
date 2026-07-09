@@ -6,7 +6,7 @@ import path from "node:path";
 import picomatch from "picomatch";
 import { openDb } from "@kb/core";
 import { hybridSearch, similarNotes, noResultHint } from "@kb/core";
-import { appendSignal } from "@kb/core";
+import { appendSignal, readNoteId } from "@kb/core";
 import { getStats, formatStats } from "@kb/core";
 import { addNote } from "@kb/core";
 import { runIndex } from "@kb/core";
@@ -77,7 +77,11 @@ export function buildServer(vault: Vault): McpServer {
       if (!fs.existsSync(abs)) {
         return { content: [{ type: "text", text: `不存在：${rel}` }], isError: true };
       }
-      appendSignal(vault.root, { tool: "kb_read", path: relNorm });
+      appendSignal(vault.root, {
+        tool: "kb_read",
+        path: relNorm,
+        id: readNoteId(abs) ?? undefined,
+      });
       return { content: [{ type: "text", text: fs.readFileSync(abs, "utf8") }] };
     }
   );
@@ -161,8 +165,13 @@ export function buildServer(vault: Vault): McpServer {
       for (const rel of paths) {
         const relNorm = path.relative(vault.root, path.resolve(vault.root, rel));
         if (relNorm.startsWith("..") || !isManaged(relNorm)) continue;
-        if (!fs.existsSync(path.join(vault.root, relNorm))) continue;
-        appendSignal(vault.root, { tool: "kb_cite", path: relNorm });
+        const abs = path.join(vault.root, relNorm);
+        if (!fs.existsSync(abs)) continue;
+        appendSignal(vault.root, {
+          tool: "kb_cite",
+          path: relNorm,
+          id: readNoteId(abs) ?? undefined,
+        });
         cited.push(relNorm);
       }
       return {

@@ -19,10 +19,12 @@ import {
   kbDir,
   latestKillList,
   loadVault,
+  notePathIdMap,
   notePreview,
   openDb,
   parsePending,
   readSignals,
+  signalNoteKey,
   reportsDir,
   resolveEmbeddingKey,
   runCoroner,
@@ -210,20 +212,23 @@ export function createApp(opts: AppOptions): Hono {
         }>
       ).map((r) => [r.dst, r.c])
     );
+    const pathToId = notePathIdMap(db);
     db.close();
 
+    // 键 = 笔记 id（历史 path 行经映射兜底），移动后的笔记仍能显示最后读取/引用
     const lastRead = new Map<string, string>();
     const lastCite = new Map<string, string>();
     for (const s of readSignals(v.root)) {
-      if (!s.path) continue;
-      if (s.tool === "kb_read") lastRead.set(s.path, s.ts);
-      if (s.tool === "kb_cite") lastCite.set(s.path, s.ts);
+      const key = signalNoteKey(s, pathToId);
+      if (!key) continue;
+      if (s.tool === "kb_read") lastRead.set(key, s.ts);
+      if (s.tool === "kb_cite") lastCite.set(key, s.ts);
     }
     const notes = (rows as NoteListItem[]).map((n) => ({
       ...n,
       backlinks: backlinks.get(n.path) ?? 0,
-      lastRead: lastRead.get(n.path) ?? null,
-      lastCite: lastCite.get(n.path) ?? null,
+      lastRead: (n.id ? lastRead.get(n.id) : undefined) ?? null,
+      lastCite: (n.id ? lastCite.get(n.id) : undefined) ?? null,
     }));
     return c.json({ notes });
   });
@@ -246,14 +251,15 @@ export function createApp(opts: AppOptions): Hono {
     ).map((r) => r.src);
     db.close();
 
+    const noteId = typeof parsed.data?.kb_id === "string" ? parsed.data.kb_id : null;
     const signals: Signal[] = [];
     for (const s of readSignals(v.root).reverse()) {
-      if (s.path === rel) signals.push(s);
+      if ((noteId && s.id === noteId) || s.path === rel) signals.push(s);
       if (signals.length >= 50) break;
     }
 
     // 管理性浏览 ≠ 真实使用：记 kb_ui 留审计痕迹，法医不认，不给笔记续命
-    appendSignal(v.root, { tool: "kb_ui", path: rel });
+    appendSignal(v.root, { tool: "kb_ui", path: rel, id: noteId ?? undefined });
 
     const fm: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(parsed.data ?? {})) {
