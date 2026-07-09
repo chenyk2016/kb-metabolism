@@ -4,8 +4,8 @@
 
 ## 你可以放心做的
 
-- **读 frontmatter**：`kb_tier` / `kb_use_when` / `kb_expires` 是稳定的公开接口，按[规范](/protocol/spec#frontmatter-字段)解析
-- **追加信号**：往 `access.log.jsonl` 追加合法 JSONL 行。给你的工具起独立的 `tool` 名（如 `myapp_read`），**默认不续命**——想让它续命，先来提 issue 讨论协议升版
+- **读 frontmatter**：`kb_id` / `kb_tier` / `kb_use_when` / `kb_expires` 是稳定的公开接口，按[规范](/protocol/spec#frontmatter-字段)解析；`kb_id` 由系统分配，你只读不写
+- **追加信号**：往 `access.log.jsonl` 追加合法 JSONL 行。给你的工具起独立的 `tool` 名（如 `myapp_read`），**默认不续命**——想让它续命，先来提 issue 讨论协议升版。信号行建议同时带 `path` 和 `id`（从目标笔记 frontmatter 读 `kb_id`），用户整理目录后你的信号仍可追溯
 - **读信号日志**：容忍撕裂行；把日志当事实流，不要当数据库
 - **重建索引**：`kb.db` 是派生物，你可以自建自己的索引，互不干扰
 
@@ -14,7 +14,7 @@
 1. **替用户删除或移动被管理的笔记**。删除唯一合法路径是"名单 → 人勾选 → git mv 进墓地"。你的工具再智能，也只能提案。
 2. **绕过入口税**。往库里写入 L0/L1 笔记必须带 `kb_use_when`；写不出就标 inbox 并给 `kb_expires`。
 3. **伪造续命信号**。不要替用户批量产生 `kb_read`/`kb_cite`——那会让法医失明，最终毁掉的是用户对库的信任。管理性、自动化的访问请用自己的 tool 名（参考 `kb_ui`/`kb_inject` 的先例）。
-4. **修改或截断 access.log.jsonl**。它是唯一不可再生的数据，只允许追加。
+4. **修改或截断 access.log.jsonl**。它是唯一不可再生的数据，只允许追加。（唯一官方豁免：`kb migrate-signals` 的一次性身份迁移，带自动备份——第三方工具无此豁免。）
 5. **把 secrets.json 带进任何同步/上传**。
 
 ## 推荐的接入方式（按侵入度排序）
