@@ -11,6 +11,8 @@ import { getStats, formatStats } from "@kb/core";
 import { addNote } from "@kb/core";
 import { runIndex } from "@kb/core";
 import { digestReminder } from "@kb/core";
+import { listUntriaged, runCoroner, runDoctor, saveDoctorReport, buildChewCandidates } from "@kb/core";
+import { emitTriagePrompt, emitDigestPrompt, emitChewPrompt } from "@kb/core";
 import type { Vault } from "@kb/core";
 
 /** 门规：随 MCP initialize 注入接入方 agent 的上下文——规则跟着门走，不依赖客户端配置 */
@@ -186,6 +188,60 @@ export function buildServer(vault: Vault): McpServer {
       const reminder = digestReminder(vault.root);
       if (reminder) text += `\n\n${reminder}（请转告用户）`;
       return { content: [{ type: "text", text }] };
+    }
+  );
+
+  // ── MCP prompts：维护工作流的触发也收进门（替代客户端 skill）──
+  // 每个 prompt 只做一件事：现场生成自包含的 emit 提示词。规则随代码版本走，永不漂移。
+  const promptText = (text: string) => ({
+    messages: [{ role: "user" as const, content: { type: "text" as const, text } }],
+  });
+
+  server.registerPrompt(
+    "triage",
+    {
+      title: "分诊",
+      description: "给未分诊笔记定层（L0/L1/inbox）。生成自包含任务提示——严格按其执行",
+    },
+    async () => {
+      await runIndex(vault);
+      const notes = listUntriaged(vault);
+      return promptText(
+        notes.length === 0
+          ? "知识库没有未分诊的笔记，代谢健康——无需分诊，把这个结论告诉用户即可。"
+          : emitTriagePrompt(vault, notes)
+      );
+    }
+  );
+
+  server.registerPrompt(
+    "digest",
+    {
+      title: "每周消化",
+      description: "重建索引 + 法医出处决名单 + 体检留档，然后审查名单（AI 只提案，勾选归人）",
+    },
+    async () => {
+      await runIndex(vault);
+      const { report } = runCoroner(vault);
+      saveDoctorReport(vault, runDoctor(vault));
+      return promptText(emitDigestPrompt(vault, report));
+    }
+  );
+
+  server.registerPrompt(
+    "chew",
+    {
+      title: "消化提炼",
+      description: "把近 90 天被反复读取的 L1 资料拆解成候选判断（AI 是消化酶不是胃，最终判断由人说出）",
+    },
+    async () => {
+      await runIndex(vault);
+      const candidates = buildChewCandidates(vault);
+      return promptText(
+        candidates.length === 0
+          ? "没有达到消化阈值的资料（近 90 天被读 ≥2 次的 L1）。继续走门使用，营养自然浮现——把这个结论告诉用户即可。"
+          : emitChewPrompt(vault, candidates)
+      );
     }
   );
 

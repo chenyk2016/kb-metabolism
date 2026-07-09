@@ -22,7 +22,7 @@ import { writeSecret, resolveEmbeddingKey, secretsTrackedByGit } from "@kb/core"
 import { latestKillList, parsePending, notePreview, approveLines } from "@kb/core";
 import { serve } from "@kb/mcp";
 import { startUi, DEFAULT_PORT } from "@kb/server";
-import { humanTriage, confirm, LineReader, type UntriagedNote } from "@kb/core";
+import { humanTriage, confirm, LineReader, listUntriaged } from "@kb/core";
 import { runWizard, isGitRepo, type WizardResult } from "./wizard.js";
 import { hookPrompt, hookSession, installHooks, uninstallHooks, buildHookConfig } from "./hooks.js";
 import { emitTriagePrompt, emitDigestPrompt, emitChewPrompt } from "@kb/core";
@@ -38,27 +38,6 @@ program
 
 function vault(): Vault {
   return loadVault(program.opts().vault);
-}
-
-function untriagedNotes(v: Vault, limit?: number): UntriagedNote[] {
-  const db = openDb(v.root);
-  const rows = db
-    .prepare("SELECT path, title FROM notes WHERE tier IS NULL ORDER BY path" + (limit ? " LIMIT ?" : ""))
-    .all(...(limit ? [limit] : [])) as Array<{ path: string; title: string }>;
-  db.close();
-  return rows.map((r) => {
-    let head = "";
-    try {
-      head = fs
-        .readFileSync(path.join(v.root, r.path), "utf8")
-        .replace(/^---[\s\S]*?---/, "")
-        .trim()
-        .slice(0, 400);
-    } catch {
-      // 文件读不了就只凭标题分诊
-    }
-    return { path: r.path, title: r.title, head };
-  });
 }
 
 async function applyDecisions(v: Vault, decisions: TierDecision[]): Promise<void> {
@@ -398,7 +377,7 @@ program
   .action(async (opts) => {
     const v = vault();
     await runIndex(v);
-    const notes = untriagedNotes(v, opts.limit ? parseInt(opts.limit, 10) : undefined);
+    const notes = listUntriaged(v, opts.limit ? parseInt(opts.limit, 10) : undefined);
     if (notes.length === 0) {
       console.log("没有未分诊的笔记。代谢健康。");
       return;

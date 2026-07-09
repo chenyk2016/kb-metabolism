@@ -20,5 +20,6 @@ export * from "./coroner.js";
 export * from "./executor.js";
 export * from "./review.js";
 export * from "./chew.js";
+export * from "./triage.js";
 export * from "./judgment/human.js";
 export * from "./judgment/agent.js";

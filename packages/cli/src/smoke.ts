@@ -26,6 +26,21 @@ await client.connect(transport);
 const tools = await client.listTools();
 console.log("tools:", tools.tools.map((t) => t.name).join(", "));
 
+const prompts = await client.listPrompts();
+const promptNames = prompts.prompts.map((p) => p.name).sort();
+console.log("prompts:", promptNames.join(", "));
+if (JSON.stringify(promptNames) !== JSON.stringify(["chew", "digest", "triage"])) {
+  console.error("FAIL: expected prompts chew/digest/triage");
+  process.exit(1);
+}
+const triagePrompt = await client.getPrompt({ name: "triage" });
+const triageText = (triagePrompt.messages[0].content as { type: string; text: string }).text;
+console.log(`--- prompt triage → ${triageText.length} chars ---`);
+if (!triageText.includes("分诊") && !triageText.includes("未分诊")) {
+  console.error("FAIL: triage prompt looks wrong");
+  process.exit(1);
+}
+
 const query = process.env.KB_SMOKE_QUERY ?? "test";
 const search = await client.callTool({ name: "kb_search", arguments: { query, limit: 3 } });
 const searchText = (search.content as Array<{ type: string; text: string }>)[0].text;
