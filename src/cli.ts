@@ -198,6 +198,44 @@ program
   });
 
 program
+  .command("now", { isDefault: true })
+  .description("现在该做什么？（直接运行 kb 就是这个命令）")
+  .action(async () => {
+    let v: Vault;
+    try {
+      v = vault();
+    } catch {
+      console.log("还没有知识库。第一步：cd 到你的笔记目录（Obsidian vault 也行），运行 kb init");
+      return;
+    }
+    const s = getStats(v);
+    console.log(`知识库：${s.total} 条 · L0 ${s.l0}/${s.l0Cap} · 近 7 天走门 ${s.reads7d + s.searches7d} 次\n`);
+
+    // 按优先级给出"此刻该做的一件事"——剧本，不是能力清单
+    const todo: string[] = [];
+    const untriaged = s.tiers["未分诊"] ?? 0;
+    if (untriaged > 0) todo.push(`${untriaged} 条笔记还未分诊 → kb triage`);
+    const latest = latestKillList(v.root);
+    if (latest && parsePending(latest).items.length > 0) {
+      todo.push(`处决名单有 ${parsePending(latest).items.length} 条待过堂 → kb review`);
+    }
+    const reminder = digestReminder(v.root);
+    if (reminder) todo.push(reminder.replace(/^⚠️ /, "") + " → kb digest");
+    const chews = buildChewCandidates(v);
+    if (chews.length > 0) todo.push(`${chews.length} 篇高频资料值得提炼成判断 → kb chew`);
+
+    if (todo.length === 0) {
+      console.log("✅ 代谢健康，此刻什么都不用做。");
+      console.log("日常就这样用：笔记照常写；查东西问接了门的 agent；存东西让 agent 调 kb_add。");
+      console.log("门会在该消化的时候提醒你。");
+    } else {
+      console.log("此刻该做的事（按优先级）：");
+      todo.forEach((t, i) => console.log(`  ${i + 1}. ${t}`));
+      console.log(`\n日常无需操作——写笔记照旧，检索交给 agent；以上是每周 5 分钟的维护仪式。`);
+    }
+  });
+
+program
   .command("index")
   .description("重建派生索引（笔记、反链、全文检索、增量向量）")
   .action(async () => {
