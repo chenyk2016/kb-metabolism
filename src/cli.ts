@@ -14,8 +14,11 @@ import { executeReport } from "./core/executor.js";
 import { addNote } from "./core/capture.js";
 import { applyDecision } from "./core/frontmatter.js";
 import { getStats, formatStats } from "./core/stats.js";
+import { digestReminder } from "./core/reminder.js";
+import { runDoctor, formatDoctor, saveDoctorReport } from "./core/doctor.js";
+import { latestKillList, parsePending, notePreview, approveLines } from "./core/review.js";
 import { serve } from "./mcp/server.js";
-import { humanTriage, confirm, type UntriagedNote } from "./judgment/human.js";
+import { humanTriage, confirm, LineReader, type UntriagedNote } from "./judgment/human.js";
 import { emitTriagePrompt, emitDigestPrompt } from "./judgment/agent.js";
 import type { TierDecision, Vault } from "./core/types.js";
 
@@ -91,7 +94,65 @@ program
     const r = await runIndex(v);
     console.log(`知识库就绪：${root}`);
     console.log(`管理范围：${opts.managed.join(", ")}——${r.notes} 条笔记，${r.links} 条反链`);
-    console.log(`下一步：kb triage 分诊 · kb serve 开检索门（MCP）· kb digest 每周消化`);
+    if (r.notes > 0) {
+      // 冷启动 aha：不等 90 天信号，git/反链立刻给出"库里有多少在沉睡"
+      console.log("\n" + formatDoctor(runDoctor(v)));
+    }
+    console.log(`\n下一步：kb triage 分诊 · kb serve 开检索门（MCP）· kb digest 每周消化`);
+  });
+
+program
+  .command("doctor")
+  .description("知识库体检：年龄分层、孤儿率、门流量与诊断（不依赖信号，随时可跑）")
+  .option("--save", "同时留档到 .kb/reports/health-*.md")
+  .action(async (opts) => {
+    const v = vault();
+    await runIndex(v);
+    const r = runDoctor(v);
+    console.log(formatDoctor(r));
+    if (opts.save) console.log(`\n已留档：${saveDoctorReport(v, r)}`);
+  });
+
+program
+  .command("review [report]")
+  .description("交互式过堂处决名单（y=处决 n=赦免 q=退出），结束后自动执行")
+  .action(async (report) => {
+    const v = vault();
+    const file = report ? path.resolve(report) : latestKillList(v.root);
+    if (!file || !fs.existsSync(file)) {
+      console.error("找不到处决名单——先跑 kb digest");
+      process.exit(1);
+    }
+    const { items } = parsePending(file);
+    if (items.length === 0) {
+      console.log(`名单里没有待审条目：${file}`);
+      return;
+    }
+    console.log(`过堂 ${path.basename(file)}：${items.length} 条候选`);
+    const reader = new LineReader();
+    const approved: number[] = [];
+    try {
+      for (const [i, it] of items.entries()) {
+        console.log(`\n[${i + 1}/${items.length}] ${it.path}`);
+        if (it.rest) console.log(`  ${it.rest}`);
+        const head = notePreview(v, it.path);
+        if (head) console.log(`  ${head}…`);
+        const a = (await reader.ask("  判决？[y]=处决 [n]=赦免 [q]=退出 > ")).trim().toLowerCase();
+        if (a === "q") break;
+        if (a === "y") approved.push(it.line);
+      }
+    } finally {
+      reader.close();
+    }
+    if (approved.length === 0) {
+      console.log("\n没有批准任何处决，名单保留（赦免的下周仍可能上榜，除非获得使用信号）。");
+      return;
+    }
+    approveLines(file, approved);
+    console.log(`\n已批准 ${approved.length} 条，执行掩埋…`);
+    const r = await executeReport(v, file);
+    for (const m of r.moved) console.log(`已掩埋：${m}`);
+    console.log(r.committed ? "已提交 git（可反悔）。" : "未提交（无 git 或暂存区有你的东西）。");
   });
 
 program
@@ -228,8 +289,10 @@ program
       console.log("提案已追加进报告。");
     }
 
+    const health = saveDoctorReport(v, runDoctor(v));
     console.log("\n" + formatStats(getStats(v)));
-    console.log(`\n审阅报告，勾选 [x] 批准的条目，然后：kb execute ${report}`);
+    console.log(`体检已留档：${health}（kb doctor 随时查看）`);
+    console.log(`\n过堂审批：kb review（或手工勾选后 kb execute ${report}）`);
   });
 
 program
@@ -251,7 +314,10 @@ program
   .command("stats")
   .description("知识库健康度")
   .action(() => {
-    console.log(formatStats(getStats(vault())));
+    const v = vault();
+    console.log(formatStats(getStats(v)));
+    const reminder = digestReminder(v.root);
+    if (reminder) console.log("\n" + reminder);
   });
 
 program

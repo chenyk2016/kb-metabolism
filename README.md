@@ -110,16 +110,18 @@ vault 自包含：配置、信号日志、报告都在 `.kb/` 里，跟着目录
 | `kb add [标题] [-w 何时再用] [-t 层级]` | 捕捉（入口税自动生效） |
 | `kb triage [--emit] [-y]` | 按配置的 provider 给未分诊笔记定层 |
 | `kb search <词>` / `kb read <路径>` | 检索门（记信号） |
-| `kb digest [--emit] [--no-llm]` | 重建索引 + 法医 + 可选 LLM 提案 |
+| `kb digest [--emit] [--no-llm]` | 重建索引 + 法医 + 可选 LLM 提案 + 体检留档 |
+| `kb review [报告]` | **交互式过堂**：逐条 y/n 判决，完了自动执行 |
 | `kb execute <报告>` | 掩埋勾选项（可反悔） |
-| `kb stats` | 库健康度 |
+| `kb doctor [--save]` | **体检**：年龄分层/孤儿率/诊断——不依赖信号，新库第一分钟即可用 |
+| `kb stats` | 库健康度（距上次消化超一周会在这里和门上提醒你） |
 | `kb serve` | MCP 门（stdio） |
 | `kb index` | 重建派生索引 |
 | `kb migrate --from <旧db>` | 导入旧版 sqlite 访问日志 |
 
 ## 每周节律
 
-每周五分钟：`kb digest` → 看报告 → 勾选 → `kb execute`。想自动化就 cron：
+每周五分钟：`kb digest` → `kb review` 逐条 y/n 过堂，完了自动掩埋。忘了跑也没关系——**门自己会提醒**（检索/统计时距上次消化超一周就带一行提示）。想全自动就 cron：
 
 ```
 30 9 * * 1 kb --vault ~/notes digest

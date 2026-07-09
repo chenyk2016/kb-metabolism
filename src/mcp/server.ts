@@ -10,6 +10,7 @@ import { appendSignal } from "../core/signals.js";
 import { getStats, formatStats } from "../core/stats.js";
 import { addNote } from "../core/capture.js";
 import { runIndex } from "../core/indexer.js";
+import { digestReminder } from "../core/reminder.js";
 import type { Vault } from "../core/types.js";
 
 /** 门规：随 MCP initialize 注入接入方 agent 的上下文——规则跟着门走，不依赖客户端配置 */
@@ -42,10 +43,12 @@ export function buildServer(vault: Vault): McpServer {
       const hits = await hybridSearch(vault, db, query, limit ?? 8);
       db.close();
       appendSignal(vault.root, { tool: "kb_search", query });
-      const text =
+      let text =
         hits.length === 0
           ? `无结果：${query}\n${noResultHint(query)}`
           : hits.map((h) => `- ${h.path}\n  标题: ${h.title}\n  片段: ${h.snip}`).join("\n");
+      const reminder = digestReminder(vault.root);
+      if (reminder) text += `\n\n${reminder}（请转告用户）`;
       return { content: [{ type: "text", text }] };
     }
   );
@@ -149,7 +152,10 @@ export function buildServer(vault: Vault): McpServer {
       inputSchema: {},
     },
     async () => {
-      return { content: [{ type: "text", text: formatStats(getStats(vault)) }] };
+      let text = formatStats(getStats(vault));
+      const reminder = digestReminder(vault.root);
+      if (reminder) text += `\n\n${reminder}（请转告用户）`;
+      return { content: [{ type: "text", text }] };
     }
   );
 

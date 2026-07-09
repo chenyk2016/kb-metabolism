@@ -8,7 +8,7 @@ export type UntriagedNote = { path: string; title: string; head: string };
  * (where all lines land in one chunk before the first question is asked)
  * behaves exactly like interactive input. On EOF, pending asks resolve "".
  */
-class LineReader {
+export class LineReader {
   private queue: string[] = [];
   private waiters: Array<(s: string) => void> = [];
   private closed = false;
