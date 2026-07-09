@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import Database from "better-sqlite3";
 import { initVault, loadVault, kbDir, signalLogPath } from "./core/config.js";
@@ -19,6 +20,7 @@ import { runDoctor, formatDoctor, saveDoctorReport } from "./core/doctor.js";
 import { latestKillList, parsePending, notePreview, approveLines } from "./core/review.js";
 import { serve } from "./mcp/server.js";
 import { humanTriage, confirm, LineReader, type UntriagedNote } from "./judgment/human.js";
+import { runWizard, isGitRepo, type WizardResult } from "./wizard.js";
 import { emitTriagePrompt, emitDigestPrompt } from "./judgment/agent.js";
 import type { TierDecision, Vault } from "./core/types.js";
 
@@ -60,45 +62,83 @@ async function applyDecisions(v: Vault, decisions: TierDecision[]): Promise<void
   console.log(`\n已应用 ${decisions.length} 条决定；当前层级分布：`, r.tiers);
 }
 
+function gitInit(root: string): void {
+  execFileSync("git", ["-C", root, "init", "-q"]);
+  execFileSync("git", ["-C", root, "add", "-A"]);
+  try {
+    execFileSync("git", ["-C", root, "commit", "-qm", "kb: init vault", "--no-verify"], {
+      stdio: "ignore",
+    });
+  } catch {
+    // 空目录或缺 git 身份——没有首次提交也能用
+  }
+  console.log("已初始化 git 仓库（处决的反悔按钮）");
+}
+
+/** 用 node 与 cli.js 的绝对路径注册，避开版本管理器（volta/nvm）按目录切 node 的坑 */
+function registerMcp(root: string): void {
+  const cliJs = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "cli.js");
+  const args = ["mcp", "add", "--scope", "user", "kb", "--", process.execPath, cliJs, "serve", "--vault", root];
+  try {
+    execFileSync("claude", args, { stdio: ["ignore", "pipe", "pipe"] });
+    console.log("已注册 MCP 检索门（新开 Claude Code 会话即可用 kb_search/kb_read/kb_add/kb_stats）");
+  } catch (err) {
+    console.error(`MCP 注册失败（可能已存在同名 server）。手动执行：\n  claude ${args.join(" ")}`);
+    if (err instanceof Error && err.message) console.error(`  原因：${err.message.split("\n")[0]}`);
+  }
+}
+
 program
   .command("init")
-  .description("把当前目录（或 --vault）变成受管理的知识库")
+  .description("把当前目录（或 --vault）变成受管理的知识库（默认交互向导，flags/-y 跳过）")
   .option("--managed <globs...>", "受管理笔记的 glob 范围", ["**/*.md"])
   .option("--capture-dir <dir>", "`kb add` 写入的目录", ".")
   .option("--git", "若不在 git 仓库中则 git init（处决的反悔按钮）")
-  .action(async (opts) => {
+  .option("-y, --yes", "跳过交互向导，全部用默认值/flags")
+  .action(async (opts, cmd) => {
     const root = path.resolve(program.opts().vault ?? process.cwd());
     if (fs.existsSync(path.join(kbDir(root), "config.json"))) {
       console.error(`已经是知识库了：${root}`);
       process.exit(1);
     }
-    const v = initVault(root, { managed: opts.managed, captureDir: opts.captureDir });
-    if (opts.git) {
-      try {
-        execFileSync("git", ["-C", root, "rev-parse", "--is-inside-work-tree"], { stdio: "ignore" });
-      } catch {
-        execFileSync("git", ["-C", root, "init", "-q"]);
-        execFileSync("git", ["-C", root, "add", "-A"]);
-        try {
-          execFileSync(
-            "git",
-            ["-C", root, "commit", "-qm", "kb: init vault", "--no-verify"],
-            { stdio: "ignore" }
-          );
-        } catch {
-          // 空目录或缺 git 身份——没有首次提交也能用
-        }
-        console.log("已初始化 git 仓库（处决的反悔按钮）");
-      }
-    }
+
+    // 显式传了任一配置 flag（或 -y）就不打扰——脚本与老用法完全兼容
+    const explicit = ["managed", "captureDir", "git"].some(
+      (k) => cmd.getOptionValueSource(k) === "cli"
+    );
+    const w: WizardResult =
+      opts.yes || explicit
+        ? {
+            managed: opts.managed,
+            captureDir: opts.captureDir,
+            wantGit: !!opts.git,
+            wantMcp: false,
+            embedding: undefined,
+          }
+        : await runWizard(root);
+
+    const v = initVault(root, {
+      managed: w.managed,
+      captureDir: w.captureDir,
+      ...(w.embedding ? { embedding: w.embedding } : {}),
+    });
+    if (w.wantGit && !isGitRepo(root)) gitInit(root);
+
     const r = await runIndex(v);
-    console.log(`知识库就绪：${root}`);
-    console.log(`管理范围：${opts.managed.join(", ")}——${r.notes} 条笔记，${r.links} 条反链`);
+    console.log(`\n知识库就绪：${root}`);
+    console.log(`管理范围：${w.managed.join(", ")}——${r.notes} 条笔记，${r.links} 条反链`);
     if (r.notes > 0) {
       // 冷启动 aha：不等 90 天信号，git/反链立刻给出"库里有多少在沉睡"
       console.log("\n" + formatDoctor(runDoctor(v)));
     }
-    console.log(`\n下一步：kb triage 分诊 · kb serve 开检索门（MCP）· kb digest 每周消化`);
+    if (w.wantMcp) registerMcp(root);
+    if (w.embedding) {
+      console.log(
+        `\n语义检索已配置，还差一步：export KB_EMBEDDING_API_KEY=你的key，然后跑 kb index 生成向量` +
+          `\n（MCP 场景另需注册时带 --env KB_EMBEDDING_API_KEY=你的key，否则门降级纯字面）`
+      );
+    }
+    console.log(`\n下一步：kb triage 分诊 · kb digest 每周消化 · kb review 过堂`);
   });
 
 program

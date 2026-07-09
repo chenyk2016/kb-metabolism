@@ -31,14 +31,16 @@ kb add   kb triage  kb search/read  kb digest  人勾选   kb execute
 ```bash
 npm install -g kb-metabolism
 
-cd ~/notes            # 任意 markdown 目录
-kb init --git         # 生成 .kb/ 配置 + 索引 + 墓地；git 是反悔按钮
-kb triage             # 交互式定层（或 LLM/agent）
-kb search "fts5"      # 走门检索——留下信号
-kb digest             # 每周：法医产出处决名单
-# 审阅报告，勾选 [x] 批准的，然后：
-kb execute .kb/reports/kill-list-2026-07-08.md
+cd ~/notes    # 任意 markdown 目录（Obsidian vault 会被自动识别）
+kb init       # 交互向导：选管理范围 → git → 注册 Claude MCP → 语义检索，四问装完
+              # 装完立刻给你一份体检报告：库里有多少在沉睡
+kb triage     # 交互式定层（或 LLM/agent）
+kb search "fts5"   # 走门检索——留下信号
+kb digest     # 每周：法医产出处决名单（忘了跑门会提醒你）
+kb review     # 逐条 y/n 过堂，完了自动掩埋
 ```
+
+脚本/CI 场景用 `kb init -y` 或显式 flags（`--managed`/`--git`）跳过交互。
 
 带税捕捉：
 
