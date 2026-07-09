@@ -4,14 +4,14 @@ import { z } from "zod";
 import fs from "node:fs";
 import path from "node:path";
 import picomatch from "picomatch";
-import { openDb } from "../core/db.js";
-import { hybridSearch, similarNotes, noResultHint } from "../core/search.js";
-import { appendSignal } from "../core/signals.js";
-import { getStats, formatStats } from "../core/stats.js";
-import { addNote } from "../core/capture.js";
-import { runIndex } from "../core/indexer.js";
-import { digestReminder } from "../core/reminder.js";
-import type { Vault } from "../core/types.js";
+import { openDb } from "@kb/core";
+import { hybridSearch, similarNotes, noResultHint } from "@kb/core";
+import { appendSignal } from "@kb/core";
+import { getStats, formatStats } from "@kb/core";
+import { addNote } from "@kb/core";
+import { runIndex } from "@kb/core";
+import { digestReminder } from "@kb/core";
+import type { Vault } from "@kb/core";
 
 /** 门规：随 MCP initialize 注入接入方 agent 的上下文——规则跟着门走，不依赖客户端配置 */
 const GATE_INSTRUCTIONS = `这是个人知识库的代谢检索门。使用规则：

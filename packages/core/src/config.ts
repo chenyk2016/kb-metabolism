@@ -5,6 +5,7 @@ import type { Vault, VaultConfig } from "./types.js";
 export const KB_DIR = ".kb";
 
 export const DEFAULT_CONFIG: VaultConfig = {
+  version: 1,
   managed: ["**/*.md"],
   exclude: ["_graveyard/**", ".kb/**", ".obsidian/**", "node_modules/**", "assets/**"],
   captureDir: ".",

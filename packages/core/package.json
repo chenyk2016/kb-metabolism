@@ -1,0 +1,28 @@
+{
+  "name": "@kb/core",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "kb-metabolism 内核：代谢协议 + 引擎（索引/法医/体检/消化）。零 LLM 完整可用。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./judgment/anthropic": "./src/judgment/anthropic.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
+    "better-sqlite3": "^12.2.0",
+    "gray-matter": "^4.0.3",
+    "picomatch": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.15.0",
+    "@types/picomatch": "^4.0.3",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  }
+}

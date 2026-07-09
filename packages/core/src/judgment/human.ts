@@ -1,5 +1,5 @@
 import readline from "node:readline";
-import type { TierDecision } from "../core/types.js";
+import type { TierDecision } from "../types.js";
 
 export type UntriagedNote = { path: string; title: string; head: string };
 

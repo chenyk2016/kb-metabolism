@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { LineReader } from "./judgment/human.js";
-import type { EmbeddingConfig } from "./core/types.js";
+import { LineReader } from "@kb/core";
+import type { EmbeddingConfig } from "@kb/core";
 
 /**
  * init 交互向导：把"配 globs → git → 注册 MCP → 配语义检索"的五步上手税压成一次问答。

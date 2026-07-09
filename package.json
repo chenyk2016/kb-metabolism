@@ -1,52 +1,32 @@
 {
-  "name": "kb-metabolism",
-  "version": "0.2.0",
-  "description": "一个会遗忘的知识库——文件为真相、带日志的检索门（MCP）、数据驱动的法医、人当法官。A knowledge base that knows how to forget.",
+  "name": "kb-metabolism-monorepo",
+  "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "smoke": "node dist/smoke.js",
-    "prepublishOnly": "npm run build"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.110.0",
-    "@modelcontextprotocol/sdk": "^1.12.0",
-    "@types/picomatch": "^4.0.3",
-    "better-sqlite3": "^12.2.0",
-    "commander": "^15.0.0",
-    "gray-matter": "^4.0.3",
-    "picomatch": "^4.0.5",
-    "zod": "^4.4.3"
+    "build": "pnpm --filter kb-metabolism build && pnpm --filter @kb/web build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "smoke": "node packages/cli/dist/smoke.js",
+    "dev": "pnpm --parallel -r dev"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.0",
-    "typescript": "^5.8.0"
-  },
-  "license": "MIT",
-  "author": "qizai <chenyakun2016@gmail.com>",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/chenyk2016/kb-metabolism.git"
+    "@types/picomatch": "^4.0.3",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
   },
   "engines": {
     "node": ">=20"
   },
-  "bin": {
-    "kb": "dist/cli.js",
-    "kbm": "dist/cli.js"
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
   },
-  "keywords": [
-    "knowledge-base",
-    "pkm",
-    "mcp",
-    "obsidian",
-    "zettelkasten"
-  ],
-  "files": [
-    "dist",
-    "docs/protocol.md"
-  ],
   "volta": {
     "node": "22.23.1"
   }

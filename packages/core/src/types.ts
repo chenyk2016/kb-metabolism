@@ -10,6 +10,8 @@ export type EmbeddingConfig = {
 };
 
 export type VaultConfig = {
+  /** 代谢协议版本——config/frontmatter 约定演进的迁移锚点（缺省视为 1） */
+  version?: number;
   /** globs (relative to vault root) of managed notes */
   managed: string[];
   exclude: string[];

@@ -2,12 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
-import { openDb } from "./core/db.js";
-import { hookSearch } from "./core/search.js";
-import { appendSignal, readSignals } from "./core/signals.js";
-import { getStats } from "./core/stats.js";
-import { digestReminder } from "./core/reminder.js";
-import type { Vault } from "./core/types.js";
+import { openDb } from "@kb/core";
+import { hookSearch } from "@kb/core";
+import { appendSignal, readSignals } from "@kb/core";
+import { getStats } from "@kb/core";
+import { digestReminder } from "@kb/core";
+import type { Vault } from "@kb/core";
 
 /**
  * hooks 是门的第二形态：把"走门"从 agent 的选择变成管道的必然。

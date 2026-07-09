@@ -6,33 +6,34 @@ import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import Database from "better-sqlite3";
-import { initVault, loadVault, kbDir, signalLogPath } from "./core/config.js";
-import { runIndex } from "./core/indexer.js";
-import { openDb } from "./core/db.js";
-import { hybridSearch, noResultHint } from "./core/search.js";
-import { appendSignal } from "./core/signals.js";
-import { runCoroner } from "./core/coroner.js";
-import { executeReport } from "./core/executor.js";
-import { addNote } from "./core/capture.js";
-import { applyDecision } from "./core/frontmatter.js";
-import { getStats, formatStats } from "./core/stats.js";
-import { digestReminder } from "./core/reminder.js";
-import { runDoctor, formatDoctor, saveDoctorReport } from "./core/doctor.js";
-import { writeSecret, resolveEmbeddingKey, secretsTrackedByGit } from "./core/secrets.js";
-import { latestKillList, parsePending, notePreview, approveLines } from "./core/review.js";
-import { serve } from "./mcp/server.js";
-import { humanTriage, confirm, LineReader, type UntriagedNote } from "./judgment/human.js";
+import { initVault, loadVault, kbDir, signalLogPath } from "@kb/core";
+import { runIndex } from "@kb/core";
+import { openDb } from "@kb/core";
+import { hybridSearch, noResultHint } from "@kb/core";
+import { appendSignal } from "@kb/core";
+import { runCoroner } from "@kb/core";
+import { executeReport } from "@kb/core";
+import { addNote } from "@kb/core";
+import { applyDecision } from "@kb/core";
+import { getStats, formatStats } from "@kb/core";
+import { digestReminder } from "@kb/core";
+import { runDoctor, formatDoctor, saveDoctorReport } from "@kb/core";
+import { writeSecret, resolveEmbeddingKey, secretsTrackedByGit } from "@kb/core";
+import { latestKillList, parsePending, notePreview, approveLines } from "@kb/core";
+import { serve } from "@kb/mcp";
+import { startUi, DEFAULT_PORT } from "@kb/server";
+import { humanTriage, confirm, LineReader, type UntriagedNote } from "@kb/core";
 import { runWizard, isGitRepo, type WizardResult } from "./wizard.js";
 import { hookPrompt, hookSession, installHooks, uninstallHooks, buildHookConfig } from "./hooks.js";
-import { emitTriagePrompt, emitDigestPrompt, emitChewPrompt } from "./judgment/agent.js";
-import { buildChewCandidates, saveChewList, createL0 } from "./core/chew.js";
-import type { TierDecision, Vault } from "./core/types.js";
+import { emitTriagePrompt, emitDigestPrompt, emitChewPrompt } from "@kb/core";
+import { buildChewCandidates, saveChewList, createL0 } from "@kb/core";
+import type { TierDecision, Vault } from "@kb/core";
 
 const program = new Command();
 program
   .name("kb")
   .description("kb-metabolism 知识代谢系统——一个会遗忘的知识库")
-  .version("0.2.0")
+  .version("0.3.0")
   .option("--vault <dir>", "知识库根目录（默认从当前目录向上找 .kb/）");
 
 function vault(): Vault {
@@ -186,7 +187,7 @@ async function testKey(v: Vault): Promise<void> {
     process.exit(1);
   }
   try {
-    const { embedTexts } = await import("./core/embedding.js");
+    const { embedTexts } = await import("@kb/core");
     const [vec] = await embedTexts(cfg, ["kb key test"], resolved.key);
     const db = openDb(v.root);
     const vectors = (db.prepare("SELECT COUNT(*) AS c FROM embeddings").get() as { c: number }).c;
@@ -409,7 +410,7 @@ program
       return;
     }
     if (provider === "anthropic") {
-      const { anthropicTriage } = await import("./judgment/anthropic.js");
+      const { anthropicTriage } = await import("@kb/core/judgment/anthropic");
       console.log(`请 ${v.config.judgment.triageModel} 给 ${notes.length} 条笔记出提案…`);
       const decisions = await anthropicTriage(v, notes);
       for (const d of decisions) {
@@ -440,7 +441,7 @@ program
     if (opts.emit || v.config.judgment.provider === "agent") {
       console.log("\n" + emitDigestPrompt(v, report));
     } else if (v.config.judgment.provider === "anthropic" && opts.llm !== false) {
-      const { anthropicDigest } = await import("./judgment/anthropic.js");
+      const { anthropicDigest } = await import("@kb/core/judgment/anthropic");
       const db = openDb(v.root);
       const noteList = db
         .prepare("SELECT path, title, tier, use_when FROM notes ORDER BY path")
@@ -494,7 +495,7 @@ program
 
         if (v.config.judgment.provider === "anthropic") {
           try {
-            const { anthropicChew } = await import("./judgment/anthropic.js");
+            const { anthropicChew } = await import("@kb/core/judgment/anthropic");
             const props = await anthropicChew(v, c);
             if (props.length > 0) {
               console.log(`  消化酶拆解的候选判断（供改写，别照抄）：`);
@@ -564,6 +565,28 @@ program
   .description("启动 MCP 检索门（stdio），供任意 agent 接入")
   .action(async () => {
     await serve(vault());
+  });
+
+program
+  .command("ui")
+  .description("打开本地管理台（判决台 + 体检室），只绑 127.0.0.1")
+  .option("--port <n>", "端口", String(DEFAULT_PORT))
+  .option("--no-open", "不自动打开浏览器")
+  .action(async (opts) => {
+    const v = vault();
+    const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "web");
+    if (!fs.existsSync(path.join(webRoot, "index.html"))) {
+      console.error("管理台静态资源缺失（dist/web）——开发环境请先 pnpm build");
+      process.exit(1);
+    }
+    const { url } = await startUi({
+      root: v.root,
+      port: parseInt(opts.port, 10),
+      webRoot,
+      open: opts.open,
+    });
+    console.log(`管理台已启动：${url}（Ctrl+C 退出）`);
+    console.log(`界面里的浏览与检索记 kb_ui 观察信号，不给笔记续命——判决才是你来这里的目的。`);
   });
 
 const hook = program

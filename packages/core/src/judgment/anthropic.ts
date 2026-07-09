@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Candidate } from "../core/coroner.js";
-import type { TierDecision, Vault } from "../core/types.js";
-import type { VaultStats } from "../core/stats.js";
+import type { Candidate } from "../coroner.js";
+import type { TierDecision, Vault } from "../types.js";
+import type { VaultStats } from "../stats.js";
 import type { UntriagedNote } from "./human.js";
 
 const TRIAGE_SCHEMA = {

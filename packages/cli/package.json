@@ -1,0 +1,56 @@
+{
+  "name": "kb-metabolism",
+  "version": "0.3.0",
+  "description": "一个会遗忘的知识库——文件为真相、带日志的检索门（MCP）、数据驱动的法医、人当法官。A knowledge base that knows how to forget.",
+  "type": "module",
+  "bin": {
+    "kb": "dist/cli.js",
+    "kbm": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "cd ../.. && pnpm build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
+    "@hono/node-server": "^1.14.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "better-sqlite3": "^12.2.0",
+    "commander": "^15.0.0",
+    "gray-matter": "^4.0.3",
+    "hono": "^4.7.0",
+    "picomatch": "^4.0.5",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@kb/core": "workspace:*",
+    "@kb/mcp": "workspace:*",
+    "@kb/server": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.15.0",
+    "@types/picomatch": "^4.0.3",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.0"
+  },
+  "license": "MIT",
+  "author": "qizai <chenyakun2016@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chenyk2016/kb-metabolism.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "knowledge-base",
+    "pkm",
+    "mcp",
+    "obsidian",
+    "zettelkasten"
+  ],
+  "files": [
+    "dist",
+    "docs/protocol.md"
+  ]
+}

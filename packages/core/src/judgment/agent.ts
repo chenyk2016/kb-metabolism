@@ -1,4 +1,4 @@
-import type { Vault } from "../core/types.js";
+import type { Vault } from "../types.js";
 import type { UntriagedNote } from "./human.js";
 
 /**

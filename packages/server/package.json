@@ -1,0 +1,29 @@
+{
+  "name": "@kb/server",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "kb-metabolism 的 HTTP API（/api/v1）+ 管理台静态服务。第二个正式产品面。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dev": "tsx watch src/dev.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.0",
+    "@kb/core": "workspace:*",
+    "gray-matter": "^4.0.3",
+    "hono": "^4.7.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  }
+}
