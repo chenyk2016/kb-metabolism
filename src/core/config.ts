@@ -83,8 +83,8 @@ export function initVault(
     path.join(kbDir(root), "config.json"),
     JSON.stringify(config, null, 2) + "\n"
   );
-  // the sqlite index is derived and rebuildable — keep it out of git;
+  // the sqlite index is derived and rebuildable, secrets must never enter git;
   // config, the signal log, and reports are state worth versioning
-  fs.writeFileSync(path.join(kbDir(root), ".gitignore"), "kb.db\nkb.db-*\n");
+  fs.writeFileSync(path.join(kbDir(root), ".gitignore"), "kb.db\nkb.db-*\nsecrets.json\n");
   return { root: path.resolve(root), config };
 }

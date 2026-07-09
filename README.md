@@ -118,11 +118,13 @@ vault 自包含：配置、信号日志、报告都在 `.kb/` 里，跟着目录
 "embedding": {
   "baseUrl": "https://api.siliconflow.cn/v1",   // 任何 OpenAI 兼容端点：硅基流动/Voyage/OpenAI/Ollama
   "model": "BAAI/bge-m3",
-  "apiKeyEnv": "KB_EMBEDDING_API_KEY"            // 存环境变量名——config 进 git，key 永不落盘
+  "apiKeyEnv": "KB_EMBEDDING_API_KEY"            // 秘密的名字——config 进 git，key 本体见下
 }
 ```
 
-然后 `export KB_EMBEDDING_API_KEY=sk-xxx` 并跑一次 `kb index`（向量按内容 hash 增量计算，没改过的笔记不重算）。查询时字面三层与语义余弦各取 top20，按 RRF（`Σ 1/(60+排名)`）融合排序。**不配置或 API 不可用时自动降级纯字面**——语义只是增强，检索永远可用。个人库规模下语义匹配走 JS 全量余弦，无需任何向量数据库。
+然后 `kb key set` 粘贴一次 key（写入 `.kb/secrets.json`，0600 权限、自动加入 .gitignore），再跑 `kb index` 生成向量（按内容 hash 增量，没改过的笔记不重算）。**配置与秘密分家**：config.json 进 git（系统怎么工作，可同步可复现），secrets.json 永不进 git（你是谁）；key 的解析链是 `环境变量（临时覆盖）→ .kb/secrets.json → 降级纯字面`，一处配置，CLI / MCP 门 / cron / hooks 全部生效，不依赖各进程的 env 继承。`kb key test` 随时验证 key 与向量覆盖率，`kb doctor` 会体检语义层健康（含 secrets 误入 git 的事故检测）。换 key 不用重算向量，换 **model** 才需要全量重嵌。
+
+查询时字面三层与语义余弦各取 top20，按 RRF（`Σ 1/(60+排名)`）融合排序。**不配置或 API 不可用时自动降级纯字面**——语义只是增强，检索永远可用。个人库规模下语义匹配走 JS 全量余弦，无需任何向量数据库。
 
 几个容易踩的点：
 

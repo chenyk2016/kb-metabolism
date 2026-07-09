@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { openDb } from "./db.js";
 import { reportsDir } from "./config.js";
 import { readSignals } from "./signals.js";
+import { resolveEmbeddingKey, secretsTrackedByGit } from "./secrets.js";
 import type { NoteRow, Vault } from "./types.js";
 
 /**
@@ -49,6 +50,13 @@ export type DoctorReport = {
   /** 被创作目录（outputDirs）引用的独立笔记数（铁证级吸收） */
   outputRefs: number;
   hasSignals: boolean;
+  /** 语义层健康（未配置 embedding 时为 undefined） */
+  embedding?: {
+    keySource: "env" | "file" | null;
+    vectors: number;
+    /** secrets.json 被 git 跟踪 = key 已进历史，事故 */
+    secretsTracked: boolean;
+  };
 };
 
 export function runDoctor(vault: Vault): DoctorReport {
@@ -58,6 +66,7 @@ export function runDoctor(vault: Vault): DoctorReport {
   const backlinked = new Set(
     (db.prepare("SELECT DISTINCT dst FROM links").all() as Array<{ dst: string }>).map((r) => r.dst)
   );
+  const vectors = (db.prepare("SELECT COUNT(*) AS c FROM embeddings").get() as { c: number }).c;
   db.close();
 
   const commits = lastCommitMap(root);
@@ -117,6 +126,13 @@ export function runDoctor(vault: Vault): DoctorReport {
     cited30d: cited30d.size,
     outputRefs,
     hasSignals: signals.length > 0,
+    embedding: config.embedding
+      ? {
+          keySource: resolveEmbeddingKey(root, config.embedding)?.source ?? null,
+          vectors,
+          secretsTracked: secretsTrackedByGit(root),
+        }
+      : undefined,
   };
 }
 
@@ -153,6 +169,18 @@ export function formatDoctor(r: DoctorReport): string {
       ? `吸收：近 30 天 ${r.cited30d} 条被引用进产出${r.outputRefs > 0 ? `，另有 ${r.outputRefs} 条被创作库长期引用` : ""}（吸收率 ${pct(absorbed)}）——喂养了创造的部分`
       : `吸收：还没有笔记被引用进产出——存了不用，就只是图书管理员不是创作者`
   );
+  if (r.embedding) {
+    const e = r.embedding;
+    const src =
+      e.keySource === "env" ? "env（临时）" : e.keySource === "file" ? ".kb/secrets.json" : "❌ 未配置";
+    lines.push(``, `语义层：向量覆盖 ${e.vectors}/${r.total} · key 来源 ${src}`);
+    if (e.keySource === null)
+      lines.push(`  ⚠️ 无 key，检索一直是纯字面——跑 \`kb key set\` 一次配好（CLI/MCP 共用）`);
+    else if (e.vectors < r.total)
+      lines.push(`  ${r.total - e.vectors} 条笔记还没有向量——跑 \`kb index\` 增量补齐`);
+    if (e.secretsTracked)
+      lines.push(`  🚨 .kb/secrets.json 被 git 跟踪，key 已进历史——立即 git rm --cached 并轮换 key`);
+  }
 
   const deadWeight = r.dormant.length + r.decaying.length;
   lines.push(

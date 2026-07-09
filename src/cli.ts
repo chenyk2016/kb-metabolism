@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import fs from "node:fs";
 import path from "node:path";
+import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import Database from "better-sqlite3";
@@ -17,6 +18,7 @@ import { applyDecision } from "./core/frontmatter.js";
 import { getStats, formatStats } from "./core/stats.js";
 import { digestReminder } from "./core/reminder.js";
 import { runDoctor, formatDoctor, saveDoctorReport } from "./core/doctor.js";
+import { writeSecret, resolveEmbeddingKey, secretsTrackedByGit } from "./core/secrets.js";
 import { latestKillList, parsePending, notePreview, approveLines } from "./core/review.js";
 import { serve } from "./mcp/server.js";
 import { humanTriage, confirm, LineReader, type UntriagedNote } from "./judgment/human.js";
@@ -136,8 +138,7 @@ program
     if (w.wantMcp) registerMcp(root);
     if (w.embedding) {
       console.log(
-        `\n语义检索已配置，还差一步：export KB_EMBEDDING_API_KEY=你的key，然后跑 kb index 生成向量` +
-          `\n（MCP 场景另需注册时带 --env KB_EMBEDDING_API_KEY=你的key，否则门降级纯字面）`
+        `\n语义检索已配置，还差一步：kb key set 粘贴 API key（写入 .kb/secrets.json，自动 gitignore；CLI 和 MCP 门共用，无需再配环境变量）`
       );
     }
     console.log(`\n下一步：kb triage 分诊 · kb digest 每周消化 · kb review 过堂`);
@@ -153,6 +154,88 @@ program
     const r = runDoctor(v);
     console.log(formatDoctor(r));
     if (opts.save) console.log(`\n已留档：${saveDoctorReport(v, r)}`);
+  });
+
+/** 静默读入一行（不回显；key 永不走 argv，避免进 shell history） */
+function askHidden(prompt: string): Promise<string> {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: process.stdin.isTTY === true,
+    });
+    process.stdout.write(prompt);
+    (rl as unknown as { _writeToOutput?: (s: string) => void })._writeToOutput = () => {};
+    rl.question("", (answer) => {
+      process.stdout.write("\n");
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
+async function testKey(v: Vault): Promise<void> {
+  const cfg = v.config.embedding;
+  if (!cfg) {
+    console.error("config.json 没有 embedding 配置——先加 embedding 节（见 README「语义检索」）");
+    process.exit(1);
+  }
+  const resolved = resolveEmbeddingKey(v.root, cfg);
+  if (!resolved) {
+    console.error(`无 key：kb key set 一次配好，或临时 export ${cfg.apiKeyEnv ?? "KB_EMBEDDING_API_KEY"}`);
+    process.exit(1);
+  }
+  try {
+    const { embedTexts } = await import("./core/embedding.js");
+    const [vec] = await embedTexts(cfg, ["kb key test"], resolved.key);
+    const db = openDb(v.root);
+    const vectors = (db.prepare("SELECT COUNT(*) AS c FROM embeddings").get() as { c: number }).c;
+    const total = (db.prepare("SELECT COUNT(*) AS c FROM notes").get() as { c: number }).c;
+    db.close();
+    console.log(
+      `✅ key 可用（来源 ${resolved.source === "env" ? "环境变量（临时）" : ".kb/secrets.json"}）· ${cfg.model} · ${vec.length} 维`
+    );
+    console.log(
+      vectors < total ? `向量覆盖 ${vectors}/${total}——跑 kb index 增量补齐` : `向量覆盖 ${vectors}/${total}`
+    );
+  } catch (err) {
+    console.error(`❌ key 验证失败：${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+}
+
+const keyCmd = program
+  .command("key")
+  .description("embedding API key 管理（.kb/secrets.json——配置进 git，秘密永不进 git）");
+
+keyCmd
+  .command("set")
+  .description("粘贴 key 写入 .kb/secrets.json（0600 + 自动 gitignore），CLI/MCP/cron 全部生效")
+  .action(async () => {
+    const v = vault();
+    const cfg = v.config.embedding;
+    if (!cfg) {
+      console.error("config.json 没有 embedding 配置——先加 embedding 节（见 README「语义检索」）");
+      process.exit(1);
+    }
+    const envName = cfg.apiKeyEnv ?? "KB_EMBEDDING_API_KEY";
+    const key = await askHidden(`粘贴 ${envName}（输入不回显）> `);
+    if (!key) {
+      console.error("空输入，未写入");
+      process.exit(1);
+    }
+    console.log(`已写入 ${writeSecret(v.root, envName, key)}（0600，.kb/.gitignore 已覆盖）`);
+    if (secretsTrackedByGit(v.root)) {
+      console.error("🚨 secrets.json 已被 git 跟踪（key 可能已进历史）：git rm --cached 并轮换 key");
+    }
+    await testKey(v);
+  });
+
+keyCmd
+  .command("test")
+  .description("验证 key：真实调一次 embedding API，报告来源与向量覆盖率")
+  .action(async () => {
+    await testKey(vault());
   });
 
 program

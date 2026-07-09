@@ -6,7 +6,7 @@ import type { EmbeddingConfig, Vault } from "./types.js";
  * - 协议选业界事实标准（OpenAI 兼容 /v1/embeddings），一份 fetch 实现通吃
  *   硅基流动 / Voyage / OpenAI / Ollama，零新增 SDK 依赖
  * - 向量存 kb.db（派生物，删库可重建）；按内容 hash 增量，没改过不重算
- * - API key 走环境变量，永不落盘
+ * - API key 解析链见 secrets.ts：env 覆盖 → .kb/secrets.json（0600、gitignored），永不进 git
  * - 任何失败都降级回纯字面检索——语义只是增强，检索永远可用
  */
 
@@ -16,12 +16,9 @@ const EMBED_CHARS = 2000;
 
 export async function embedTexts(
   cfg: EmbeddingConfig,
-  texts: string[]
+  texts: string[],
+  key: string
 ): Promise<Float32Array[]> {
-  const envName = cfg.apiKeyEnv ?? "KB_EMBEDDING_API_KEY";
-  const key = process.env[envName];
-  if (!key) throw new Error(`缺少 embedding API key：请设置环境变量 ${envName}`);
-
   const out: Float32Array[] = [];
   for (let i = 0; i < texts.length; i += BATCH) {
     const batch = texts.slice(i, i + BATCH);
@@ -97,9 +94,11 @@ export async function syncEmbeddings(
   );
   const stale = notes.filter((n) => have.get(n.path) !== n.hash);
   if (stale.length > 0) {
+    const { requireEmbeddingKey } = await import("./secrets.js");
     const vecs = await embedTexts(
       cfg,
-      stale.map((n) => `${n.title}\n${n.body}`.slice(0, EMBED_CHARS))
+      stale.map((n) => `${n.title}\n${n.body}`.slice(0, EMBED_CHARS)),
+      requireEmbeddingKey(vault.root, cfg)
     );
     const ins = db.prepare(
       "INSERT OR REPLACE INTO embeddings (path, hash, dim, vec) VALUES (?, ?, ?, ?)"

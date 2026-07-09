@@ -203,7 +203,8 @@ export async function hybridSearch(
   let semantic: Hit[] = [];
   try {
     const { embedTexts, semanticSearch } = await import("./embedding.js");
-    const [qv] = await embedTexts(cfg, [query.trim()]);
+    const { requireEmbeddingKey } = await import("./secrets.js");
+    const [qv] = await embedTexts(cfg, [query.trim()], requireEmbeddingKey(vault.root, cfg));
     semantic = semanticSearch(db, qv, RECALL);
   } catch (err) {
     console.error(
