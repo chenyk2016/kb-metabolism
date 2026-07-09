@@ -229,6 +229,29 @@ export async function hybridSearch(
     .map(([p]) => meta.get(p)!);
 }
 
+/**
+ * hooks 专用检索：只走字面（毫秒级零费用——hook 阻塞 prompt，不能付 embedding 延迟），
+ * 且"不够相关就沉默"：phrase 命中算强相关；ranked 兜底须覆盖度 ≥0.35，否则返回空。
+ */
+export function hookSearch(db: Database.Database, prompt: string, limit = 3): Hit[] {
+  const q = prompt.trim();
+  if ([...q].length < 4) return [];
+  const terms = q.split(/\s+/).filter(Boolean);
+
+  let rows = phraseFts(db, terms, limit);
+  if (rows.length === 0) rows = phraseLike(db, terms, limit);
+  if (rows.length > 0) return rows;
+
+  return rankAll(db, q)
+    .filter((r) => r.rawCoverage >= 0.35)
+    .slice(0, limit)
+    .map((s) => ({
+      path: s.doc.path,
+      title: s.doc.title,
+      snip: snippetAround(s.doc.body, s.firstIdx),
+    }));
+}
+
 /** 无结果时给用户的提示 */
 export function noResultHint(_query: string): string {
   return "提示：已自动分词做过模糊匹配仍无结果——库里可能确实没有；若刚新增或修改过笔记，先跑 kb index 刷新索引";

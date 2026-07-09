@@ -21,6 +21,7 @@ import { latestKillList, parsePending, notePreview, approveLines } from "./core/
 import { serve } from "./mcp/server.js";
 import { humanTriage, confirm, LineReader, type UntriagedNote } from "./judgment/human.js";
 import { runWizard, isGitRepo, type WizardResult } from "./wizard.js";
+import { hookPrompt, hookSession, installHooks, uninstallHooks, buildHookConfig } from "./hooks.js";
 import { emitTriagePrompt, emitDigestPrompt } from "./judgment/agent.js";
 import type { TierDecision, Vault } from "./core/types.js";
 
@@ -365,6 +366,61 @@ program
   .description("启动 MCP 检索门（stdio），供任意 agent 接入")
   .action(async () => {
     await serve(vault());
+  });
+
+const hook = program
+  .command("hook")
+  .description("Claude Code hooks：自动注入相关笔记（门的第二形态，不靠 agent 自觉）");
+
+hook
+  .command("prompt")
+  .description("UserPromptSubmit 挂点：按本条 prompt 检索，相关则注入摘要（供 hooks 调用）")
+  .action(async () => {
+    try {
+      await hookPrompt(vault());
+    } catch {
+      // hook 永不打断用户
+    }
+  });
+
+hook
+  .command("session")
+  .description("SessionStart 挂点：注入库概况与最近读取（供 hooks 调用）")
+  .action(async () => {
+    try {
+      await hookSession(vault());
+    } catch {
+      // hook 永不打断用户
+    }
+  });
+
+hook
+  .command("install")
+  .description("把两个挂点写入 Claude Code settings.json（自动备份 .bak，幂等）")
+  .option("--project", "装到当前项目 .claude/settings.json（默认装 user 级）")
+  .action((opts) => {
+    const v = vault();
+    const file = installHooks(v.root, opts.project ? "project" : "user");
+    console.log(`已写入 ${file}（原文件备份为 .bak）`);
+    console.log("新开 Claude Code 会话生效：每条提问自动带上相关笔记，会话开始自动带库状态。");
+    console.log("卸载：kb hook uninstall" + (opts.project ? " --project" : ""));
+  });
+
+hook
+  .command("uninstall")
+  .description("从 settings.json 移除 kb 挂点")
+  .option("--project", "从当前项目 .claude/settings.json 移除")
+  .action((opts) => {
+    const file = uninstallHooks(opts.project ? "project" : "user");
+    console.log(file ? `已移除（${file}，备份 .bak）` : "没有找到已安装的 kb 挂点。");
+  });
+
+hook
+  .command("show")
+  .description("打印 hooks 配置片段（手动粘贴到 settings.json 用）")
+  .action(() => {
+    const v = vault();
+    console.log(JSON.stringify({ hooks: buildHookConfig(v.root) }, null, 2));
   });
 
 program
