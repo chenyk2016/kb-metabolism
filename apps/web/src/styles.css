@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+/*
+ * 设计系统：档案室 + 检验报告。
+ * 色彩只编码代谢语义——活=松绿、衰=琥珀、死/不可逆=朱砂（全站唯一的红只给处决）。
+ * 数据一律等宽；印章用楷体（系统字体，缺失时优雅降级）。
+ */
+@theme {
+  --color-paper: #f6f7f6;
+  --color-card: #ffffff;
+  --color-ink: #1a1d1b;
+  --color-ash: #6b7370;
+  --color-faint: #9aa19d;
+  --color-line: #dde1de;
+  --color-alive: #2e6b4f;
+  --color-alive-soft: #e7f0eb;
+  --color-decay: #a06a1d;
+  --color-decay-soft: #f5ecdd;
+  --color-seal: #b03a2e;
+  --color-seal-soft: #f6e7e5;
+  --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --font-kai: "Kaiti SC", "STKaiti", KaiTi, "Noto Serif SC", serif;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-size: 14px;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 印章：判决的仪式感。盖下去就是盖下去了。 */
+.stamp {
+  font-family: var(--font-kai);
+  display: inline-block;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  letter-spacing: 0.15em;
+  transform: rotate(-6deg);
+  font-weight: 700;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .stamp-in {
+    animation: stamp-in 0.18s cubic-bezier(0.2, 1.6, 0.4, 1);
+  }
+  @keyframes stamp-in {
+    from {
+      transform: rotate(-6deg) scale(1.7);
+      opacity: 0;
+    }
+    to {
+      transform: rotate(-6deg) scale(1);
+      opacity: 1;
+    }
+  }
+}
+
+/* markdown 正文（笔记预览） */
+.prose-note {
+  line-height: 1.75;
+  font-size: 0.92rem;
+}
+.prose-note h1,
+.prose-note h2,
+.prose-note h3 {
+  font-weight: 600;
+  margin: 1.2em 0 0.5em;
+}
+.prose-note h1 { font-size: 1.15rem; }
+.prose-note h2 { font-size: 1.05rem; }
+.prose-note h3 { font-size: 0.98rem; }
+.prose-note p { margin: 0.6em 0; }
+.prose-note ul,
+.prose-note ol {
+  padding-left: 1.4em;
+  margin: 0.6em 0;
+}
+.prose-note ul { list-style: disc; }
+.prose-note ol { list-style: decimal; }
+.prose-note code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 3px;
+  padding: 0 0.3em;
+}
+.prose-note pre {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  padding: 0.7em 0.9em;
+  overflow-x: auto;
+  margin: 0.7em 0;
+}
+.prose-note pre code { border: none; background: none; padding: 0; }
+.prose-note blockquote {
+  border-left: 3px solid var(--color-line);
+  padding-left: 0.9em;
+  color: var(--color-ash);
+  margin: 0.7em 0;
+}
+.prose-note a { color: var(--color-alive); text-decoration: underline; }
+.prose-note table { border-collapse: collapse; margin: 0.7em 0; }
+.prose-note th,
+.prose-note td { border: 1px solid var(--color-line); padding: 0.3em 0.6em; }
+
+:focus-visible {
+  outline: 2px solid var(--color-alive);
+  outline-offset: 1px;
+}
