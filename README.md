@@ -47,10 +47,18 @@ kb review     # 逐条 y/n 过堂，完了自动掩埋
 这个系统的设计哲学是**尽量不被使用**——它是器官，不是要天天打开的工具：
 
 - **日常零操作**：笔记照常在你的编辑器里写；查东西直接问接了门的 agent（hooks 自动带上下文）；想存东西对 agent 说"存进知识库，用途是 XX"
-- **每周 5 分钟**：门提醒你时（检索/统计尾部那行 ⚠️）→ `kb digest` 出名单 → `kb review` 逐条 y/n
+- **每周 5 分钟**：门提醒你时（检索/统计尾部那行 ⚠️）→ `kb digest` 出名单 → `kb review` 逐条 y/n；喜欢图形界面就 `kb ui`，判决台一屏搞定
 - **偶尔**：digest 说有资料值得提炼时 → `kb chew` 用自己的话说出判断
 
 **不知道该干什么的时候，直接敲 `kb`**——它会看一眼你的库，告诉你此刻该做的事（或者告诉你什么都不用做）。
+
+### 管理台（`kb ui`）
+
+`kb ui` 在本机起一个判决台 + 体检室（`127.0.0.1:7317`，只绑本机）：总览体检、分层浏览、过堂盖章、分诊定层、消化落 L0、信号流水、配置管理。三条纪律刻在管道里：
+
+- 界面里的浏览与检索记 `kb_ui` 观察信号——**法医不认，不给笔记续命**（在管理界面翻一遍库 ≠ 使用）
+- 全站没有删除按钮：删除唯一路径仍是 勾选名单 → 执行（git mv 可反悔），墓地里可一键还魂
+- 不做笔记编辑器：改内容回你自己的编辑器，文件永远是唯一真相
 
 带税捕捉：
 
@@ -147,6 +155,7 @@ vault 自包含：配置、信号日志、报告都在 `.kb/` 里，跟着目录
 | `kb execute <报告>` | 掩埋勾选项（可反悔） |
 | `kb doctor [--save]` | **体检**：年龄分层/孤儿率/诊断——不依赖信号，新库第一分钟即可用 |
 | `kb stats` | 库健康度（距上次消化超一周会在这里和门上提醒你） |
+| `kb ui [--port 7317] [--no-open]` | **管理台**：判决台 + 体检室（只绑 127.0.0.1） |
 | `kb serve` | MCP 门（stdio） |
 | `kb index` | 重建派生索引 |
 | `kb migrate --from <旧db>` | 导入旧版 sqlite 访问日志 |
@@ -171,9 +180,23 @@ vault 自包含：配置、信号日志、报告都在 `.kb/` 里，跟着目录
 
 ## 开发
 
+pnpm monorepo；发布物仍是单包 `kb-metabolism`（`@kb/*` 私有包构建期打进 bundle）：
+
+```
+packages/core     引擎与协议（索引/法医/体检/消化）——零 LLM 不变量锁在这里
+packages/mcp      MCP 检索门（stdio）
+packages/server   HTTP API（/api/v1，Hono+zod）——管理台与未来一切集成的正式产品面
+packages/cli      kb 命令行（发布包，tsup 打包，web 构建产物随包分发）
+apps/web          React 管理台（Vite + Tailwind + TanStack Query）
+```
+
 ```bash
-npm install && npm run build
-KB_SMOKE_VAULT=/path/to/a/vault npm run smoke   # MCP 端到端冒烟
+pnpm install
+pnpm build              # cli bundle + 管理台（产物进 packages/cli/dist/）
+pnpm typecheck && pnpm test   # 各包 tsc + vitest（core 协议行为 + server 契约）
+pnpm test:e2e           # Playwright：三条判决工作流打真实文件系统（先 pnpm build）
+KB_SMOKE_VAULT=/path/to/a/vault pnpm smoke   # MCP 端到端冒烟
+pnpm dev                # server（tsx watch）+ web（vite，/api 代理到 7317）
 ```
 
 MIT © 柒崽

@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      # 项目 .npmrc 里 use-node-version 钉死了脚本用的 node（22.23.1），
+      # 这里的 node 只负责跑 pnpm 本体
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit & contract tests
+        run: pnpm test
+
+      - name: Build (cli bundle + web console)
+        run: pnpm build
+
+      - name: E2E (judgment workflows against built artifacts)
+        working-directory: apps/web
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm test:e2e
+
+      - name: MCP smoke
+        run: |
+          mkdir -p /tmp/smoke-vault
+          printf -- '---\nkb_tier: L1\nkb_use_when: "ci"\n---\n# FTS5 note\n\nsqlite fts5 trigram content.\n' > /tmp/smoke-vault/note.md
+          node packages/cli/dist/cli.js init -y --vault /tmp/smoke-vault
+          KB_SMOKE_VAULT=/tmp/smoke-vault KB_SMOKE_QUERY=fts5 pnpm smoke
