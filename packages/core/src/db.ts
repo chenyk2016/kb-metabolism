@@ -16,7 +16,6 @@ export function openDb(root: string): Database.Database {
   db.exec(`
     CREATE TABLE IF NOT EXISTS notes (
       path     TEXT PRIMARY KEY,
-      id       TEXT,
       title    TEXT NOT NULL,
       tier     TEXT,
       use_when TEXT,
