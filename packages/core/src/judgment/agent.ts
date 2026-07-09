@@ -47,5 +47,10 @@ export function emitDigestPrompt(vault: Vault, reportFile: string): string {
 1. 读处决名单 ${reportFile}，逐条 sanity check（**不许替主人勾选任何框**——人是法官；判定理由与事实不符的，在该行末尾追加注释说明）。
 2. 在受管理笔记中找重复/可合并的，以及值得 L1→L0 升级的（检索用 \`kb search\` / \`kb read\`，让查询留下使用信号）。
 3. 把"## 消化提案"章节（"- [ ]" 勾选行）追加到报告文件末尾。
-4. 向主人汇报：候选数、提案数，并说明批准方式 = 勾选后运行 \`kb execute ${reportFile}\`。`;
+4. 向主人汇报：候选数、提案数，并说明批准方式 = 勾选后运行 \`kb execute ${reportFile}\`（或 \`kb review\` / \`kb ui\` 过堂）。
+
+对话式审批（主人不想碰 CLI、直接在对话里下判决时）：
+- 把名单条目编号列清楚，等主人明说
+- **只勾选主人逐字点名的条目**——判决内容必须来自主人原话，禁止推断、禁止"顺便"
+- 勾选后运行 \`kb execute ${reportFile}\` 并汇报掩埋结果（git 可反悔）`;
 }
