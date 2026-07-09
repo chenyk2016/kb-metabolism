@@ -34,7 +34,7 @@
 | 阶段 | 内容 | 闸门 |
 |---|---|---|
 | **A 本地产品完整体** | monorepo 重构、@kb/server HTTP API、React 管理台、测试体系、CI | 现在做（specs/phase-7） |
-| **B 分发** | Obsidian 插件（150 万用户宿主、交叉人群滩头）、`npx kb-metabolism ui` 零安装、文档站、协议规范独立发布、MCP prompts（把 triage/digest/chew 的触发也收进门，替代客户端 skill——规则跟着门走的最后一块） | A 完成 + npm 发布 |
+| **B 分发** | Obsidian 插件（150 万用户宿主、交叉人群滩头）、`npx kb-metabolism ui` 零安装、文档站（✅ 已上线）、协议规范独立发布（✅）、MCP prompts（✅ 触发收进门）、官方零知识 SKILL.md（✅ `skills/`，Agent Skills 开放标准，40+ 客户端可读——触发双通道：MCP prompts 管协议原生，SKILL.md 管自然语言与跨客户端；知识唯一真相永远在 emit prompts，调研见 agent-space `research/2026-07-09-mcp-vs-skills.md`） | A 完成 + npm 发布 |
 | **C 云与团队（商业）** | 信号/报告同步、团队 vault、归属人判决流、计费。开源本地版永久免费，云/团队收费（Basic Memory 验证过的双轨） | **闸门②付费信号**（ideas/kb-metabolism/02-pricing.md），信号未到一行不写 |
 
 蓝图的用途是"把难改的决定现在做对"（monorepo 边界、API 形状、框架选型），不是"现在把楼盖完"。

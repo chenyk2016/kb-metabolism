@@ -77,7 +77,13 @@ claude mcp add --scope user kb -- kb serve --vault ~/notes
 
 暴露工具：`kb_search`、`kb_read`、`kb_add`、`kb_cite`、`kb_stats`。给 agent 立一条规矩：**查知识必须走门**——绕过门等于给全部笔记发免死金牌。
 
-维护工作流也以 MCP prompts 暴露（Claude Code 里即斜杠命令 `/mcp__kb__triage`、`/mcp__kb__digest`、`/mcp__kb__chew`）——分诊/消化/提炼的完整任务提示由门现场生成，规则随版本走，无需配置任何客户端 skill。
+维护工作流也以 MCP prompts 暴露（Claude Code 里即斜杠命令 `/mcp__kb__triage`、`/mcp__kb__digest`、`/mcp__kb__chew`）——分诊/消化/提炼的完整任务提示由门现场生成，规则随版本走。
+
+想要自然语言触发（"帮我消化一下知识库"）或客户端不支持 MCP prompts？装官方 skill（[Agent Skills 开放标准](https://agentskills.io)，零知识薄壳，仓库 `skills/` 目录）：
+
+```bash
+npx skills add https://github.com/chenyk2016/kb-metabolism --skill kb-metabolism
+```
 
 ### 消化与吸收（完整的代谢）
 

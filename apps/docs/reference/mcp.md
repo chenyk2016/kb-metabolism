@@ -26,7 +26,7 @@ claude mcp add --scope user kb -- kb serve --vault ~/notes
 
 ## 三个 prompts（维护工作流的触发）
 
-除工具外，门还暴露三个 MCP prompts——维护工作流的触发也收进门，规则随代码版本走，无需在任何客户端配置 skill。在 Claude Code 里它们显示为斜杠命令：
+除工具外，门还暴露三个 MCP prompts——维护工作流的触发也收进门，规则随代码版本走。在 Claude Code 里它们显示为斜杠命令（客户端不支持 prompts 或想要自然语言触发时，用[官方 skill](/guide/agents#触发维护工作流-双通道)）：
 
 | prompt | 斜杠命令 | 做什么 |
 |---|---|---|
