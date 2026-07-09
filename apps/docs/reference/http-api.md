@@ -15,7 +15,7 @@
 | `GET /notes/detail?path=` | 笔记详情（正文/frontmatter/反链/信号史）；记 `kb_ui` |
 | `POST /notes` | 捕捉：`{title, content?, tier?, useWhen?, force?}`——先过查重税，命中返回 `{similar}` 不写入 |
 | `GET /search?q=&limit=` | 混合检索；记 `kb_ui` |
-| `GET /signals?tool=&path=&limit=` | 信号流水（倒序） |
+| `GET /signals?tool=&path=&limit=` | 信号流水（倒序）；行内可含 `id`（笔记稳定身份 kb_id，认领以它为准） |
 | `GET /reports` / `GET /reports/detail?file=` | 报告列表/内容（kill-list 附逐条解析与预览） |
 | `POST /review/approve` | `{file, lines[]}` 勾选名单行 |
 | `POST /review/execute` | `{file}` 执行掩埋（git mv，可反悔） |
