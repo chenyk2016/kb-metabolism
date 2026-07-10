@@ -1,6 +1,6 @@
 # 知识代谢协议
 
-> 权威版本。管理范围：`~/.openclaw/shared/notes/content/00-my-inbox`
+> 权威版本。管理范围：`~/.openclaw/shared/notes/content` 下 00-inbox / 10-projects / 20-areas / 30-resources / 40-archive / 90-system 六区（2026-07-10 PARA 化迁移后）
 > 核心原则：**知识库健康度不看有多少条，看每一条都有明确的未来用途。默认过期，主动续期。**
 
 ## 三层结构
