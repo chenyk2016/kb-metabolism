@@ -43,7 +43,15 @@ const params = {
   topLevelExempt: ["daily", "assets"],
   exemptZones: [], // 深度/命名/副本检查豁免的顶层区（如自治的人格库、创作区）
 };
-const constitutionFile = path.join(root, "90-system", "目录规范.md");
+// 宪法发现：优先库根 90-system/，其次各顶层区内的 90-system/（PARA 层嵌在某个区内的布局）
+let constitutionFile = path.join(root, "90-system", "目录规范.md");
+if (!fs.existsSync(constitutionFile)) {
+  for (const e of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!e.isDirectory() || e.name.startsWith(".") || e.name.startsWith("_")) continue;
+    const cand = path.join(root, e.name, "90-system", "目录规范.md");
+    if (fs.existsSync(cand)) { constitutionFile = cand; break; }
+  }
+}
 let constitutionFound = false;
 if (fs.existsSync(constitutionFile)) {
   constitutionFound = true;
@@ -218,7 +226,7 @@ if (asJson) {
   const icon = { ok: "✅", warn: "⚠️", fail: "❌" };
   console.log(`# 结构体检报告 ${new Date().toISOString().slice(0, 10)}\n`);
   console.log(`库根: ${root}`);
-  console.log(`宪法: ${constitutionFound ? "90-system/目录规范.md" : "未找到（使用默认参数）"}｜豁免区: ${params.exemptZones.join(", ") || "无"}\n`);
+  console.log(`宪法: ${constitutionFound ? path.relative(root, constitutionFile) : "未找到（使用默认参数）"}｜豁免区: ${params.exemptZones.join(", ") || "无"}\n`);
   console.log(`| 检查 | 状态 | 数量 |\n|---|---|---|`);
   for (const c of checks) console.log(`| ${c.title} | ${icon[c.status]} | ${c.count} |`);
   for (const c of checks) {
