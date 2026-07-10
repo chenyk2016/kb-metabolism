@@ -47,6 +47,9 @@ npx skills add https://github.com/chenyk2016/kb-metabolism --skill kb-metabolism
 
 MCP 工具靠 agent 自觉调用——它有时不会去搜。hooks 把"走门"变成管道的必然：
 
+> 想看完整生效机制（安装写了什么、每条提问的 8 步时序、判准与坑）？
+> 有一页独立图解：[hooks 生效机制](https://chenyk2016.github.io/kb-metabolism/hooks.html)。
+
 ```bash
 kb hook install    # 写入 Claude Code settings.json（备份 .bak，幂等，可 uninstall）
 ```

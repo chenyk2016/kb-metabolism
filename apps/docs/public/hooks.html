@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hooks 生效机制 · kb-metabolism</title>
+</head>
+<body>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --surface-2: #eef2f0; --ink: #1c2422;
+    --muted: #5c6b66; --line: #dde4e1; --accent: #0f766e; --accent-ink: #ffffff;
+    --alive: #15803d; --alive-bg: #e8f5ec; --warn: #b45309; --warn-bg: #fdf3e3;
+    --dead: #b91c1c; --dead-bg: #fbeaea; --code-bg: #eef2f0;
+    --font-body: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101514; --surface: #1a211f; --surface-2: #212a27; --ink: #e8edea;
+      --muted: #94a49e; --line: #2b3532; --accent: #2dd4bf; --accent-ink: #06211d;
+      --alive: #4ade80; --alive-bg: #16281d; --warn: #fbbf24; --warn-bg: #2b2413;
+      --dead: #f87171; --dead-bg: #2e1a1a; --code-bg: #212a27;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f8f7; --surface: #ffffff; --surface-2: #eef2f0; --ink: #1c2422;
+    --muted: #5c6b66; --line: #dde4e1; --accent: #0f766e; --accent-ink: #ffffff;
+    --alive: #15803d; --alive-bg: #e8f5ec; --warn: #b45309; --warn-bg: #fdf3e3;
+    --dead: #b91c1c; --dead-bg: #fbeaea; --code-bg: #eef2f0;
+  }
+  :root[data-theme="dark"] {
+    --bg: #101514; --surface: #1a211f; --surface-2: #212a27; --ink: #e8edea;
+    --muted: #94a49e; --line: #2b3532; --accent: #2dd4bf; --accent-ink: #06211d;
+    --alive: #4ade80; --alive-bg: #16281d; --warn: #fbbf24; --warn-bg: #2b2413;
+    --dead: #f87171; --dead-bg: #2e1a1a; --code-bg: #212a27;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.75; margin: 0; font-size: 16px; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 96px; }
+  code { font-family: var(--font-mono); font-size: .85em; background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+  pre { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.6; }
+  pre code { background: none; padding: 0; }
+  .eyebrow { font-size: 12px; letter-spacing: .18em; color: var(--accent); font-weight: 600; }
+  h1 { font-size: 28px; line-height: 1.3; margin: 10px 0 8px; text-wrap: balance; }
+  .lede { color: var(--muted); max-width: 42em; margin: 0 0 8px; }
+  section { margin-top: 56px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid var(--ink); padding-bottom: 10px; margin-bottom: 14px; }
+  .sec-head .no { font-family: var(--font-mono); font-size: 13px; color: var(--accent); font-weight: 600; }
+  h2 { font-size: 20px; margin: 0; }
+  h3 { font-size: 15.5px; margin: 26px 0 10px; }
+  p { max-width: 46em; }
+  .muted { color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--surface-2); font-size: 13px; }
+  .tablewrap { overflow-x: auto; }
+
+  /* 对比双栏 */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 620px) { .duo { grid-template-columns: 1fr; } }
+  .duo .col { border-radius: 8px; padding: 14px 16px; font-size: 14px; border: 1px solid var(--line); background: var(--surface); }
+  .duo b.lab { font-size: 11px; letter-spacing: .12em; display: block; margin-bottom: 6px; }
+  .col.mcp b.lab { color: var(--warn); }
+  .col.hook b.lab { color: var(--accent); }
+
+  /* 时序流水 */
+  .steps { counter-reset: step; display: flex; flex-direction: column; gap: 0; margin-top: 8px; }
+  .step { position: relative; padding: 12px 16px 12px 58px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin-top: 10px; font-size: 14px; }
+  .step::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 16px; top: 13px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  }
+  .step .who { font-size: 11px; letter-spacing: .1em; color: var(--muted); display: block; }
+  .step.exit { border-style: dashed; background: var(--surface-2); }
+  .step.exit::before { background: var(--muted); }
+  .step.signal::before { background: var(--warn); }
+
+  .callout { border-radius: 8px; padding: 12px 16px; font-size: 14px; margin: 14px 0; }
+  .callout.ok { background: var(--alive-bg); border: 1px solid var(--alive); }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn); }
+  .callout b:first-child { display: block; margin-bottom: 2px; }
+  .callout.ok b { color: var(--alive); }
+  .callout.warn b { color: var(--warn); }
+
+  /* 信号条 */
+  .sig { display: grid; grid-template-columns: 110px 1fr; gap: 0 14px; align-items: center; margin: 6px 0; }
+  .sig .s-name { font-family: var(--font-mono); font-size: 13px; text-align: right; }
+  .sig .s-bar { height: 24px; border-radius: 4px; display: flex; align-items: center; padding: 0 10px; font-size: 12px; font-weight: 600; white-space: nowrap; color: #fff; }
+  @media (prefers-color-scheme: dark) { .sig .s-bar { color: #06211d; } }
+  :root[data-theme="dark"] .sig .s-bar { color: #06211d; }
+  :root[data-theme="light"] .sig .s-bar { color: #fff; }
+  .bar-cite { width: 100%; background: var(--accent); }
+  .bar-read { width: 54%; background: var(--alive); }
+  .bar-inject { width: 24%; background: var(--warn); outline: 2px dashed var(--warn); outline-offset: 2px; }
+  .bar-zero { width: 9%; background: var(--surface-2); border: 1px dashed var(--line); color: var(--muted) !important; font-weight: 400; }
+
+  ul.clean { padding-left: 20px; margin: 8px 0; }
+  ul.clean li { margin: 7px 0; font-size: 14.5px; }
+  .foot { margin-top: 72px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">KB-METABOLISM · 机制图解</div>
+  <h1>hooks 是怎么生效的：门的第二形态</h1>
+  <p class="lede">MCP 工具靠 agent <b>自觉</b>调用——它有时不会去搜。hooks 把"走门"从选择变成<b>管道的必然</b>：每条提问自动检索、相关就注入、不相关就沉默。本页拆解从 <code>kb hook install</code> 到摘要出现在模型上下文里的每一步。</p>
+
+  <section>
+    <div class="sec-head"><span class="no">00</span><h2>为什么需要第二形态</h2></div>
+    <div class="duo">
+      <div class="col mcp"><b class="lab">形态一 · MCP 工具（自觉）</b>
+        agent 觉得需要才调 <code>kb_search</code>。它经常不觉得需要——直接凭训练知识回答，你的积累被绕过，笔记拿不到续命信号。
+      </div>
+      <div class="col hook"><b class="lab">形态二 · hooks（管道）</b>
+        Claude Code 在<b>每条提问进入模型之前</b>强制运行一段外部命令。检索不再依赖 agent 的判断——它发生在 agent 思考之前。
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="no">01</span><h2>安装那一刻发生了什么</h2></div>
+    <p><code>kb hook install</code> 只做一件事：往 Claude Code 的 <code>~/.claude/settings.json</code> 写两条挂点注册（先备份 <code>.bak</code>；加 <code>--project</code> 则写当前项目的 <code>.claude/settings.json</code>）：</p>
+<pre><code>{
+  "hooks": {
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command",
+      "command": "\"/path/to/node\" \"/path/to/cli.js\" hook prompt --vault \"/你的/vault\"" }] }],
+    "SessionStart":     [{ "hooks": [{ "type": "command",
+      "command": "\"/path/to/node\" \"/path/to/cli.js\" hook session --vault \"/你的/vault\"" }] }]
+  }
+}</code></pre>
+    <ul class="clean">
+      <li><b>幂等</b>：命令串里带 <code>kb-metabolism</code> 标记，重装时先移除旧条目再写新的，不会越装越多；你自己的其他 hooks 原样保留。</li>
+      <li><b>可逆</b>：<code>kb hook uninstall</code> 按标记精确移除；<code>kb hook show</code> 打印配置片段供手动粘贴。</li>
+      <li><b>三个绝对路径被固化</b>：node 可执行文件、cli.js、vault 目录——见下文"坑"。</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="no">02</span><h2>每条提问的完整时序（UserPromptSubmit）</h2></div>
+    <p class="muted">从你按下回车到模型开始思考之间，发生了这 8 步——全程毫秒级：</p>
+    <div class="steps">
+      <div class="step"><span class="who">CLAUDE CODE</span>你提交一条消息。在把它交给模型之前，Claude Code 发现 UserPromptSubmit 挂点上注册了命令，同步执行它，把 <code>{"prompt": "你输入的内容", …}</code> 以 JSON 写进该进程的 stdin。</div>
+      <div class="step"><span class="who">KB 进程</span><code>kb hook prompt</code> 启动，读 stdin 拿到提问原文。</div>
+      <div class="step exit"><span class="who">守门 · 提前退出</span>提问不足 4 个字符 → 直接退出，零输出。（另有总闸：任何异常都被吞掉静默退出——hook 永不打断你的提问。）</div>
+      <div class="step"><span class="who">KB 进程</span>只读打开派生索引 <code>.kb/kb.db</code>（SQLite），跑 <b>纯字面</b>检索 <code>hookSearch</code>——刻意不走 embedding：hook 阻塞提问，不能付网络延迟。</div>
+      <div class="step"><span class="who">判准（三层降级）</span>① 整串精确命中（FTS5 trigram）→ 强相关；② 空格分词全命中（LIKE AND）；③ 自动分词评分兜底，须同时满足 <b>idf 加权覆盖 ≥ 50%</b>（常用字权重趋零）<b>且至少 1 个词命中笔记标题</b>（正文碰瓷拦截）。取 top 3。</div>
+      <div class="step exit"><span class="who">纪律 · 宁沉默</span>没有一篇过线 → 零输出退出。Claude Code 收到空 stdout = 什么都不注入。<b>沉默是合格行为，不是故障。</b></div>
+      <div class="step signal"><span class="who">信号记账</span>每篇被注入的笔记追加一行 <code>kb_inject</code> 到 <code>.kb/access.log.jsonl</code>（含 query 前 80 字、路径、kb_id）——这是第三档存活证据，<b>免死 30 天</b>。</div>
+      <div class="step"><span class="who">注入</span>stdout 输出 <code>&lt;kb-context&gt;</code> 块（每篇一行：路径 — 标题：摘要片段，外加一句"如需全文用 kb_read"）。Claude Code 把这段文本放进本轮模型上下文——模型"未卜先知"地知道了你的相关积累。</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="no">03</span><h2>会话开始时（SessionStart）</h2></div>
+    <p>新会话（含 resume）第一时间注入一次 <code>&lt;kb-status&gt;</code>，内容三样：库概况（总数、L0 容量）、<b>最近经门读过的 3 篇</b>（按 kb_id 解析成当前路径——笔记移动过也指得到新家，给会话连续性），以及距上次消化超一周时的提醒（"请转告用户"）。库为空则沉默。</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="no">04</span><h2>注入在信号经济里的位置</h2></div>
+    <p>hooks 不只是便利功能——它是信号经济的一环。协议 v2 起，注入是第三档存活证据：</p>
+    <div class="sig"><div class="s-name">kb_cite</div><div class="s-bar bar-cite">被引用进产出 · 免死 180 天</div></div>
+    <div class="sig"><div class="s-name">kb_read</div><div class="s-bar bar-read">被读取全文 · 免死 90 天</div></div>
+    <div class="sig"><div class="s-name">kb_inject</div><div class="s-bar bar-inject">被注入且真相关 · 免死 30 天</div></div>
+    <div class="sig"><div class="s-name">search / ui</div><div class="s-bar bar-zero">不续命</div></div>
+    <p class="muted" style="font-size:13.5px">为什么注入配续命：摘要一眼够用的短笔记最有用，却恰恰因此永远不会被点开全文——v1 时代它们会被法医冤杀。为什么只有 30 天：注入是机器行为，效力必须低于人/agent 亲手读取与引用。为什么先收紧判准再给续命：判准不准，注入续命就是滥发免死金牌——顺序不能反。</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="no">05</span><h2>三条纪律与三个坑</h2></div>
+    <h3>纪律（刻在代码里）</h3>
+    <ul class="clean">
+      <li><b>永不打断</b>：任何异常静默退出——知识库坏了也不能影响你提问。</li>
+      <li><b>宁沉默勿碰瓷</b>：不够相关就零输出，不制造上下文噪音。</li>
+      <li><b>只走字面</b>：毫秒级零费用，绝不为注入付 embedding 延迟。</li>
+    </ul>
+    <h3>坑（使用前想清楚）</h3>
+    <div class="callout warn"><b>① 绝对路径固化</b>settings.json 里的命令写死了安装时的 node、cli.js 与 vault 路径。升级 node 大版本、重装 kb、移动 vault 之后，<b>重跑一次 <code>kb hook install</code></b>，否则 hook 静默失效（它连报错都不会——纪律①）。</div>
+    <div class="callout warn"><b>② user 级 = 全局生效</b>默认装在 <code>~/.claude/settings.json</code>——你在<b>任何项目</b>的每条提问都会检索这个 vault 并可能注入个人笔记摘要。在意隔离就用 <code>--project</code> 只装到特定项目。</div>
+    <div class="callout ok"><b>③ 静默失效怎么察觉</b>正因 hook 从不报错，判断它活着的办法是看信号：<code>kb stats</code>／管理台信号页里有没有新的 <code>kb_inject</code>；或新开会话看有没有 <code>&lt;kb-status&gt;</code>。</div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="no">06</span><h2>命令速查</h2></div>
+    <div class="tablewrap">
+    <table>
+      <tr><th>命令</th><th>作用</th></tr>
+      <tr><td><code>kb hook install [--project]</code></td><td>写入两条挂点（备份 .bak，幂等），新会话生效</td></tr>
+      <tr><td><code>kb hook uninstall [--project]</code></td><td>按标记精确移除</td></tr>
+      <tr><td><code>kb hook show</code></td><td>打印配置片段，手动粘贴用</td></tr>
+      <tr><td><code>kb hook prompt / session</code></td><td>挂点本体（Claude Code 调用，不需要手动跑）</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <div class="foot">源码：<code>packages/cli/src/hooks.ts</code>（挂点与安装）· <code>packages/core/src/search.ts</code> 的 <code>hookSearch</code>（判准）· 协议 v2 信号规则见 <a href="https://chenyk2016.github.io/kb-metabolism/protocol/spec" style="color:var(--accent)">协议规范</a></div>
+</div>
+
+</body>
+</html>
