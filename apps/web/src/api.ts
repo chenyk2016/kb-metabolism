@@ -70,6 +70,8 @@ export const api = {
   reviewExecute: (file: string) => send<ExecuteResponse>("POST", "/review/execute", { file }),
   triage: (decisions: Array<{ path: string; tier: "L0" | "L1" | "inbox"; useWhen?: string }>) =>
     send<{ applied: number; tiers: Record<string, number> }>("POST", "/triage", { decisions }),
+  promote: (body: { path: string; tier: "L0" | "L1"; useWhen: string }) =>
+    send<{ path: string; from: string; tier: "L0" | "L1" }>("POST", "/promote", body),
   chewCandidates: () => get<ChewCandidatesResponse>("/chew/candidates"),
   chew: (body: { judgment: string; useWhen: string; evidencePaths: string[] }) =>
     send<{ created: string }>("POST", "/chew", body),

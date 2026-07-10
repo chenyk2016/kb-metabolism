@@ -60,6 +60,12 @@ export const AddNoteSchema = z.object({
   force: z.boolean().default(false),
 });
 
+export const PromoteSchema = z.object({
+  path: z.string().min(1),
+  tier: z.enum(["L0", "L1"]).default("L1"),
+  useWhen: z.string().min(1, "入口税：晋升必须提供 use_when"),
+});
+
 export const GraveyardRestoreSchema = z.object({
   file: z.string().regex(/^[^/\\]+\.md$/, "非法文件名"),
 });

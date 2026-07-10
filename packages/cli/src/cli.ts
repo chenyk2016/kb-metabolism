@@ -14,6 +14,7 @@ import { appendSignal, readNoteId, notePathIdMap } from "@kb/core";
 import { runCoroner } from "@kb/core";
 import { executeReport } from "@kb/core";
 import { addNote } from "@kb/core";
+import { promoteNote } from "@kb/core";
 import { applyDecision } from "@kb/core";
 import { getStats, formatStats } from "@kb/core";
 import { digestReminder } from "@kb/core";
@@ -219,8 +220,29 @@ keyCmd
   });
 
 program
+  .command("promote <path>")
+  .description("晋升笔记：inbox/未分诊 → L1/L0，L1 → L0（入口税照收：必须给 use_when）")
+  .requiredOption("-w, --use-when <用途>", "一句话：什么时候会再用到")
+  .option("-t, --tier <层级>", "目标层级（L1 或 L0）", "L1")
+  .action(async (rel, opts) => {
+    const v = vault();
+    if (opts.tier !== "L1" && opts.tier !== "L0") {
+      console.error("目标层级只能是 L1 或 L0");
+      process.exit(1);
+    }
+    try {
+      const r = promoteNote(v, rel, opts.tier, opts.useWhen);
+      await runIndex(v);
+      console.log(`已晋升：${r.path}  ${r.from} → ${r.tier}（use_when: ${opts.useWhen}）`);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  });
+
+program
   .command("review [report]")
-  .description("交互式过堂处决名单（y=处决 n=赦免 q=退出），结束后自动执行")
+  .description("交互式过堂处决名单（y=处决 n=赦免 p=升级 q=退出），结束后自动执行")
   .action(async (report) => {
     const v = vault();
     const file = report ? path.resolve(report) : latestKillList(v.root);
@@ -236,21 +258,41 @@ program
     console.log(`过堂 ${path.basename(file)}：${items.length} 条候选`);
     const reader = new LineReader();
     const approved: number[] = [];
+    let promoted = 0;
     try {
       for (const [i, it] of items.entries()) {
         console.log(`\n[${i + 1}/${items.length}] ${it.path}`);
         if (it.rest) console.log(`  ${it.rest}`);
         const head = notePreview(v, it.path);
         if (head) console.log(`  ${head}…`);
-        const a = (await reader.ask("  判决？[y]=处决 [n]=赦免 [q]=退出 > ")).trim().toLowerCase();
+        const a = (await reader.ask("  判决？[y]=处决 [n]=赦免 [p]=升级 [q]=退出 > "))
+          .trim()
+          .toLowerCase();
         if (a === "q") break;
         if (a === "y") approved.push(it.line);
+        if (a === "p") {
+          const useWhen = (await reader.ask("  什么时候会再用到？> ")).trim();
+          const tierIn = (await reader.ask("  升到哪层？[1]=L1（默认） [0]=L0 > ")).trim();
+          const tier = tierIn === "0" ? ("L0" as const) : ("L1" as const);
+          try {
+            const r = promoteNote(v, it.path, tier, useWhen);
+            promoted++;
+            console.log(`  已晋升：${r.from} → ${r.tier}（不勾选，层级已变，下周不再上榜）`);
+          } catch (err) {
+            console.error(`  ${err instanceof Error ? err.message : err}`);
+          }
+        }
       }
     } finally {
       reader.close();
     }
+    if (promoted > 0) await runIndex(v);
     if (approved.length === 0) {
-      console.log("\n没有批准任何处决，名单保留（赦免的下周仍可能上榜，除非获得使用信号）。");
+      console.log(
+        promoted > 0
+          ? `\n本轮晋升 ${promoted} 条、零处决，名单保留（赦免的下周仍可能上榜，除非获得使用信号）。`
+          : "\n没有批准任何处决，名单保留（赦免的下周仍可能上榜，除非获得使用信号）。"
+      );
       return;
     }
     approveLines(file, approved);

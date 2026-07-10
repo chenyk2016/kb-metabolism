@@ -14,6 +14,7 @@ export * from "./search.js";
 export * from "./embedding.js";
 export * from "./secrets.js";
 export * from "./capture.js";
+export * from "./promote.js";
 export * from "./frontmatter.js";
 export * from "./stats.js";
 export * from "./reminder.js";

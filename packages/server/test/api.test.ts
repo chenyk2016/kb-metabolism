@@ -125,6 +125,36 @@ describe("判决工作流", () => {
     expect(fs.readFileSync(path.join(root, "untriaged.md"), "utf8")).toContain("kb_tier: L1");
   });
 
+  it("晋升端点：入口税强制、只升不降、清 expires", async () => {
+    fs.writeFileSync(
+      path.join(root, "stub.md"),
+      `---\nkb_tier: inbox\nkb_expires: "2099-01-01"\n---\n# 暂存\n\n内容。\n`
+    );
+    await runIndex(vault);
+    // 无 use_when → 400
+    let res = await req("/api/v1/promote", {
+      method: "POST",
+      headers: JSON_H,
+      body: JSON.stringify({ path: "stub.md", tier: "L1", useWhen: "" }),
+    });
+    expect(res.status).toBe(400);
+    // 正常晋升
+    res = await req("/api/v1/promote", {
+      method: "POST",
+      headers: JSON_H,
+      body: JSON.stringify({ path: "stub.md", tier: "L1", useWhen: "契约测试再用" }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ from: "inbox", tier: "L1" });
+    // 同层再升 → 400
+    res = await req("/api/v1/promote", {
+      method: "POST",
+      headers: JSON_H,
+      body: JSON.stringify({ path: "stub.md", tier: "L1", useWhen: "再来一次" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
   it("digest → 过堂 approve → execute 掩埋（可反悔的唯一删除路径）", async () => {
     const digest = await req("/api/v1/digest", { method: "POST", headers: JSON_H });
     expect(digest.status).toBe(200);

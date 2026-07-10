@@ -14,6 +14,7 @@ claude mcp add --scope user kb -- kb serve --vault ~/notes
 | `kb_read` | 读笔记全文（路径相对 vault 根，限管理范围内） | 记 `kb_read`——**续命 90 天** |
 | `kb_add` | 捕捉新笔记。**入口税**：无 `use_when` 只能进 inbox；**查重税**：疑似同主题时不写入、返回候选，确认新主题才 `force=true` | 记 `kb_add` |
 | `kb_cite` | 声明产出实际使用了哪些笔记 | 记 `kb_cite`——**续命 180 天** |
+| `kb_promote` | 晋升层级（仅在用户明确说"留下/升级"时用）：inbox/未分诊 → L1/L0；`use_when` 必填（入口税），只升不降 | 不记信号（晋升是判决不是使用，git 记账） |
 | `kb_stats` | 库健康度：层级分布、L0 容量、孤儿、门流量 | 无 |
 
 ## 门规（注入给 agent 的规则）

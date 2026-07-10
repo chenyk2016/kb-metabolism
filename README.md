@@ -37,7 +37,7 @@ kb init       # 交互向导：选管理范围 → git → 注册 Claude MCP →
 kb triage     # 交互式定层（或 LLM/agent）
 kb search "fts5"   # 走门检索——留下信号
 kb digest     # 每周：法医产出处决名单（忘了跑门会提醒你）
-kb review     # 逐条 y/n 过堂，完了自动掩埋
+kb review     # 逐条过堂：y 处决 / n 赦免 / p 升级，完了自动掩埋
 ```
 
 脚本/CI 场景用 `kb init -y` 或显式 flags（`--managed`/`--git`）跳过交互。
@@ -75,7 +75,7 @@ echo "一次性调研内容" | kb add "临时发现"                    # → in
 claude mcp add --scope user kb -- kb serve --vault ~/notes
 ```
 
-暴露工具：`kb_search`、`kb_read`、`kb_add`、`kb_cite`、`kb_stats`。给 agent 立一条规矩：**查知识必须走门**——绕过门等于给全部笔记发免死金牌。
+暴露工具：`kb_search`、`kb_read`、`kb_add`、`kb_cite`、`kb_promote`、`kb_stats`。给 agent 立一条规矩：**查知识必须走门**——绕过门等于给全部笔记发免死金牌。
 
 维护工作流也以 MCP prompts 暴露（Claude Code 里即斜杠命令 `/mcp__kb__triage`、`/mcp__kb__digest`、`/mcp__kb__chew`）——分诊/消化/提炼的完整任务提示由门现场生成，规则随版本走。
 
@@ -166,7 +166,8 @@ vault 自包含：配置、信号日志、报告都在 `.kb/` 里，跟着目录
 | `kb digest [--emit] [--no-llm]` | 重建索引 + 法医 + 消化名单 + 可选 LLM 提案 + 体检留档 |
 | `kb chew [--emit]` | **消化**：把反复被读的 L1 提炼成 L0 判断（AI 拆解，人合成） |
 | `kb chew --judgment <判断> --use-when <用途> --source <路径...>` | 非交互落 L0（agent 转录主人原话的唯一合法通道，含上限检查） |
-| `kb review [报告]` | **交互式过堂**：逐条 y/n 判决，完了自动执行 |
+| `kb review [报告]` | **交互式过堂**：y 处决 / n 赦免 / **p 升级**，完了自动执行 |
+| `kb promote <路径> -w <用途> [-t L1\|L0]` | **晋升**：inbox/未分诊 → L1/L0（入口税照收，清 inbox 过期日） |
 | `kb execute <报告>` | 掩埋勾选项（可反悔） |
 | `kb doctor [--save]` | **体检**：年龄分层/孤儿率/诊断——不依赖信号，新库第一分钟即可用 |
 | `kb stats` | 库健康度（距上次消化超一周会在这里和门上提醒你） |

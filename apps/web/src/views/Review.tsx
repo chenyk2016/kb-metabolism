@@ -21,7 +21,7 @@ import {
  * 这里是全站唯一能"删"东西的地方——而且执行的是 git mv，永远可反悔。
  */
 
-type Verdict = "execute" | "pardon";
+type Verdict = "execute" | "pardon" | "promote";
 
 export default function Review() {
   const qc = useQueryClient();
@@ -38,6 +38,22 @@ export default function Review() {
 
   const [verdicts, setVerdicts] = useState<Record<number, Verdict>>({});
   const [confirming, setConfirming] = useState(false);
+  const [promoting, setPromoting] = useState<{ line: number; path: string } | null>(null);
+  const [useWhen, setUseWhen] = useState("");
+  const [promoteTier, setPromoteTier] = useState<"L0" | "L1">("L1");
+
+  const promote = useMutation({
+    mutationFn: (p: { line: number; path: string }) =>
+      api.promote({ path: p.path, tier: promoteTier, useWhen: useWhen.trim() }),
+    onSuccess: (_r, p) => {
+      setVerdicts((s) => ({ ...s, [p.line]: "promote" }));
+      setPromoting(null);
+      setUseWhen("");
+      setPromoteTier("L1");
+      qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["notes"] });
+    },
+  });
 
   const digest = useMutation({
     mutationFn: api.digest,
@@ -66,7 +82,8 @@ export default function Review() {
   const alreadyApproved = detailQ.data?.items?.filter((i) => i.checked && i.exists) ?? [];
   const executeCount = Object.values(verdicts).filter((v) => v === "execute").length;
   const pardonCount = Object.values(verdicts).filter((v) => v === "pardon").length;
-  const judged = executeCount + pardonCount;
+  const promoteCount = Object.values(verdicts).filter((v) => v === "promote").length;
+  const judged = executeCount + pardonCount + promoteCount;
 
   return (
     <div className="pb-20">
@@ -141,19 +158,21 @@ export default function Review() {
                       {v ? (
                         <>
                           <Stamp kind={v} />
-                          <Button
-                            variant="ghost"
-                            className="px-2 py-1 text-xs"
-                            onClick={() =>
-                              setVerdicts((s) => {
-                                const next = { ...s };
-                                delete next[item.line];
-                                return next;
-                              })
-                            }
-                          >
-                            撤回
-                          </Button>
+                          {v !== "promote" && (
+                            <Button
+                              variant="ghost"
+                              className="px-2 py-1 text-xs"
+                              onClick={() =>
+                                setVerdicts((s) => {
+                                  const next = { ...s };
+                                  delete next[item.line];
+                                  return next;
+                                })
+                              }
+                            >
+                              撤回
+                            </Button>
+                          )}
                         </>
                       ) : (
                         <>
@@ -169,6 +188,15 @@ export default function Review() {
                           >
                             赦免
                           </Button>
+                          <Button
+                            onClick={() => {
+                              setPromoting({ line: item.line, path: item.path });
+                              setUseWhen("");
+                              setPromoteTier("L1");
+                            }}
+                          >
+                            升级
+                          </Button>
                         </>
                       )}
                     </div>
@@ -182,7 +210,7 @@ export default function Review() {
           <div className="fixed bottom-0 left-44 right-0 border-t border-line bg-card/95 backdrop-blur">
             <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
               <div className="font-mono text-sm text-ash">
-                已判 {judged}/{pending.length} · 处决 {executeCount} · 赦免 {pardonCount}
+                已判 {judged}/{pending.length} · 处决 {executeCount} · 赦免 {pardonCount} · 升级 {promoteCount}
               </div>
               <Button
                 variant={executeCount > 0 ? "primary" : "default"}
@@ -193,6 +221,52 @@ export default function Review() {
               </Button>
             </div>
           </div>
+
+          <Modal open={!!promoting} onClose={() => setPromoting(null)}>
+            <h2 className="text-base font-semibold">晋升这篇笔记</h2>
+            <p className="mt-1 break-all font-mono text-xs text-faint">{promoting?.path}</p>
+            <p className="mt-2 text-sm text-ash">
+              入口税照收：写不出"什么时候会再用到"，它就不该晋升。晋升会清除 inbox 过期日。
+            </p>
+            <input
+              autoFocus
+              value={useWhen}
+              onChange={(e) => setUseWhen(e.target.value)}
+              placeholder="什么时候会再用到？（必填）"
+              className="mt-3 w-full rounded border border-line bg-transparent px-3 py-2 text-sm outline-none focus:border-alive"
+            />
+            <div className="mt-3 flex items-center gap-3 text-sm">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={promoteTier === "L1"}
+                  onChange={() => setPromoteTier("L1")}
+                />
+                L1 资料
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={promoteTier === "L0"}
+                  onChange={() => setPromoteTier("L0")}
+                />
+                L0 判断（有容量上限）
+              </label>
+            </div>
+            {promote.error && <div className="mt-3"><ErrorBox error={promote.error} /></div>}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setPromoting(null)}>
+                取消
+              </Button>
+              <Button
+                variant="alive"
+                disabled={!useWhen.trim() || promote.isPending}
+                onClick={() => promoting && promote.mutate(promoting)}
+              >
+                {promote.isPending ? "晋升中…" : "确认晋升"}
+              </Button>
+            </div>
+          </Modal>
 
           <Modal open={confirming} onClose={() => setConfirming(false)}>
             <h2 className="text-base font-semibold">

@@ -104,7 +104,7 @@ export function VitalityBar({ value }: { value: number }) {
 
 // ── 印章：判决的落款 ──────────────────────────────────
 
-export function Stamp({ kind }: { kind: "execute" | "pardon" }) {
+export function Stamp({ kind }: { kind: "execute" | "pardon" | "promote" }) {
   return (
     <span
       className={cn(
@@ -112,7 +112,7 @@ export function Stamp({ kind }: { kind: "execute" | "pardon" }) {
         kind === "execute" ? "text-seal" : "text-alive"
       )}
     >
-      {kind === "execute" ? t("action.execute") : t("action.pardon")}
+      {kind === "execute" ? t("action.execute") : kind === "promote" ? "升级" : t("action.pardon")}
     </span>
   );
 }

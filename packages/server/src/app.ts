@@ -23,6 +23,7 @@ import {
   notePreview,
   openDb,
   parsePending,
+  promoteNote,
   readSignals,
   signalNoteKey,
   reportsDir,
@@ -41,6 +42,7 @@ import {
   ChewSchema,
   ConfigPatchSchema,
   GraveyardRestoreSchema,
+  PromoteSchema,
   ReviewApproveSchema,
   ReviewExecuteSchema,
   TriageSchema,
@@ -380,6 +382,21 @@ export function createApp(opts: AppOptions): Hono {
     const { file } = await parseBody(c.req.raw, ReviewExecuteSchema);
     const result = await executeReport(v, reportPath(v.root, file));
     return c.json(result);
+  });
+
+  // ── 晋升（只升不降；入口税服务端强制在 core） ────────
+  api.post("/promote", async (c) => {
+    const v = vault();
+    const body = await parseBody(c.req.raw, PromoteSchema);
+    safeRel(v.root, body.path);
+    let r;
+    try {
+      r = promoteNote(v, body.path, body.tier, body.useWhen);
+    } catch (err) {
+      throw new HttpError(400, err instanceof Error ? err.message : String(err));
+    }
+    await runIndex(v);
+    return c.json(r);
   });
 
   // ── 分诊（入口税服务端强制） ────────────────────────

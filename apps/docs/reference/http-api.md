@@ -20,6 +20,7 @@
 | `POST /review/approve` | `{file, lines[]}` 勾选名单行 |
 | `POST /review/execute` | `{file}` 执行掩埋（git mv，可反悔） |
 | `POST /triage` | `{decisions:[{path,tier,useWhen?}]}`；**入口税服务端强制**（L0/L1 缺 useWhen → 400） |
+| `POST /promote` | `{path, tier?, useWhen}` 晋升（默认 L1）；只升不降、入口税强制、清 inbox 过期日 |
 | `GET /chew/candidates` | 消化候选（近 90 天读 ≥2 次的 L1） |
 | `POST /chew` | `{judgment, useWhen, evidencePaths[]}` 落 L0；L0 满 → 409 |
 | `POST /digest` | 法医 + 体检留档 + 消化名单（无 LLM） |
