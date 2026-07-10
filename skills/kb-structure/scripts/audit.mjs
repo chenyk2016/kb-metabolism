@@ -79,7 +79,9 @@ const isManaged = (rel) =>
 // ---------- 扫描 ----------
 const ALWAYS_SKIP = new Set([".kb", ".git", ".obsidian", "node_modules", "_graveyard"]);
 const topSeg = (rel) => rel.split(path.sep)[0];
-const inExemptZone = (rel) => params.exemptZones.includes(topSeg(rel));
+// 豁免区支持顶层名或任意路径前缀（如 "00-my-inbox/50-归档"）
+const inExemptZone = (rel) =>
+  params.exemptZones.some((z) => (rel + "/").startsWith(z.replace(/\/+$/, "") + "/"));
 
 const mdFiles = [];   // {rel, depth}
 const dirs = [];      // rel
