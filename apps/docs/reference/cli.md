@@ -19,6 +19,7 @@
 | `kb digest [--emit] [--no-llm]` | 重建索引 + 法医名单 + 消化名单 + 体检留档 |
 | `kb review [报告]` | 交互式过堂（y=处决 n=赦免 **p=升级** q=退出），结束自动执行 |
 | `kb promote <路径> -w <用途> [-t L1\|L0]` | 晋升：inbox/未分诊 → L1/L0，L1 → L0；只升不降，入口税照收，清 inbox 过期日 |
+| `kb bench [--limit n] [--no-semantic] [-k n]` | 检索自体基准：入口税的 use_when 当查询（未来查询的预演），三策略对比出报告；直调纯函数，不走门不留信号 |
 | `kb execute <报告>` | 掩埋名单中已勾选条目（git mv，可反悔） |
 | `kb chew [--emit] [--limit n]` | 消化：把高频 L1 提炼成 L0（AI 拆解，人合成） |
 | `kb chew --judgment <判断> --use-when <用途> --source <路径...>` | 非交互落 L0（agent 转录主人原话的唯一合法通道，含 L0 上限检查） |

@@ -170,6 +170,7 @@ vault 自包含：配置、信号日志、报告都在 `.kb/` 里，跟着目录
 | `kb promote <路径> -w <用途> [-t L1\|L0]` | **晋升**：inbox/未分诊 → L1/L0（入口税照收，清 inbox 过期日） |
 | `kb execute <报告>` | 掩埋勾选项（可反悔） |
 | `kb doctor [--save]` | **体检**：年龄分层/孤儿率/诊断——不依赖信号，新库第一分钟即可用 |
+| `kb bench [--limit n] [--no-semantic]` | **检索基准**：use_when/标题当查询，literal/semantic/hybrid 三策略对比（不走门、不留信号） |
 | `kb stats` | 库健康度（距上次消化超一周会在这里和门上提醒你） |
 | `kb ui [--port 7317] [--no-open]` | **管理台**：判决台 + 体检室（只绑 127.0.0.1） |
 | `kb serve` | MCP 门（stdio） |

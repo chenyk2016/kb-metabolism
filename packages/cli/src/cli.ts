@@ -15,6 +15,7 @@ import { runCoroner } from "@kb/core";
 import { executeReport } from "@kb/core";
 import { addNote } from "@kb/core";
 import { promoteNote } from "@kb/core";
+import { runBench, formatBench } from "@kb/core";
 import { applyDecision } from "@kb/core";
 import { getStats, formatStats } from "@kb/core";
 import { digestReminder } from "@kb/core";
@@ -217,6 +218,19 @@ keyCmd
   .description("验证 key：真实调一次 embedding API，报告来源与向量覆盖率")
   .action(async () => {
     await testKey(vault());
+  });
+
+program
+  .command("bench")
+  .description("检索自体基准：use_when/标题当查询，三策略对比（不走门、不留信号）")
+  .option("--limit <n>", "用例上限（步长抽样）", (v: string) => parseInt(v, 10))
+  .option("--no-semantic", "跳过语义路（不调 embedding API）")
+  .option("-k <n>", "Recall@k 的 k，默认 8", (v: string) => parseInt(v, 10))
+  .action(async (opts) => {
+    const v = vault();
+    await runIndex(v);
+    const r = await runBench(v, { k: opts.k, limit: opts.limit, semantic: opts.semantic });
+    console.log(formatBench(r));
   });
 
 program
