@@ -5,7 +5,7 @@ import type { Vault, VaultConfig } from "./types.js";
 export const KB_DIR = ".kb";
 
 export const DEFAULT_CONFIG: VaultConfig = {
-  version: 1,
+  version: 2, // v2：kb_inject 续命（injectDays）+ 活源反链 + 内容年龄口径，见协议规范
   managed: ["**/*.md"],
   exclude: ["_graveyard/**", ".kb/**", ".obsidian/**", "node_modules/**", "assets/**"],
   captureDir: ".",
@@ -19,6 +19,8 @@ export const DEFAULT_CONFIG: VaultConfig = {
   },
   outputDirs: [],
   citeDays: 180,
+  injectDays: 30,
+  bulkCommitThreshold: 30,
 };
 
 export function kbDir(root: string): string {

@@ -81,6 +81,10 @@ type Ranked = {
   coverage: number;
   /** 命中数 / 原始单元总数——查重用：新内容有多少已在这篇旧笔记里 */
   rawCoverage: number;
+  /** 命中单元 idf 和 / 全部有效单元 idf 和——hook 注入判相关用：常用字权重趋零，实词说了算 */
+  idfCoverage: number;
+  /** 在标题里命中的单元数——标题是主题声明，正文碰瓷（跨词边界 bigram）拦在这里 */
+  titleHits: number;
   firstIdx: number;
 };
 
@@ -108,10 +112,15 @@ function rankAll(db: Database.Database, query: string): Ranked[] {
   const live = [...df.keys()];
   if (live.length === 0) return [];
 
+  let liveIdfSum = 0;
+  for (const u of live) liveIdfSum += Math.log(1 + N / df.get(u)!);
+
   const scored: Ranked[] = [];
   for (const d of lowered) {
     let score = 0;
     let hits = 0;
+    let hitIdf = 0;
+    let titleHits = 0;
     let firstIdx = -1;
     for (const u of live) {
       const idf = Math.log(1 + N / df.get(u)!);
@@ -119,6 +128,8 @@ function rankAll(db: Database.Database, query: string): Ranked[] {
       const idx = d.lb.indexOf(u);
       if (!inTitle && idx < 0) continue;
       hits++;
+      hitIdf += idf;
+      if (inTitle) titleHits++;
       let tf = 0;
       for (let p = idx; p >= 0 && tf < 8; p = d.lb.indexOf(u, p + u.length)) tf++;
       if (tf > 0) score += idf * (1 + Math.log(tf));
@@ -132,6 +143,8 @@ function rankAll(db: Database.Database, query: string): Ranked[] {
       score: score * (0.5 + coverage),
       coverage,
       rawCoverage: hits / units.length,
+      idfCoverage: liveIdfSum === 0 ? 0 : hitIdf / liveIdfSum,
+      titleHits,
       firstIdx,
     });
   }
@@ -232,7 +245,9 @@ export async function hybridSearch(
 
 /**
  * hooks 专用检索：只走字面（毫秒级零费用——hook 阻塞 prompt，不能付 embedding 延迟），
- * 且"不够相关就沉默"：phrase 命中算强相关；ranked 兜底须覆盖度 ≥0.35，否则返回空。
+ * 且"不够相关就沉默"：phrase 命中算强相关；ranked 兜底须同时满足
+ * idf 加权覆盖度 ≥0.5（高频单元灌不进来）与标题命中 ≥1（跨词边界的碎 bigram
+ * 在正文碰瓷再多也不算主题相关），否则返回空。判准是注入续命（injectDays）的前提。
  */
 export function hookSearch(db: Database.Database, prompt: string, limit = 3): Hit[] {
   const q = prompt.trim();
@@ -244,7 +259,7 @@ export function hookSearch(db: Database.Database, prompt: string, limit = 3): Hi
   if (rows.length > 0) return rows;
 
   return rankAll(db, q)
-    .filter((r) => r.rawCoverage >= 0.35)
+    .filter((r) => r.idfCoverage >= 0.5 && r.titleHits > 0)
     .slice(0, limit)
     .map((s) => ({
       path: s.doc.path,

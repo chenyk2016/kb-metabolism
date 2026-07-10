@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import { openDb, notePathIdMap } from "./db.js";
 import { reportsDir } from "./config.js";
+import { contentAgeMap } from "./age.js";
 import { readSignals, signalNoteKey } from "./signals.js";
 import { resolveEmbeddingKey, secretsTrackedByGit } from "./secrets.js";
 import type { NoteRow, Vault } from "./types.js";
@@ -11,27 +11,9 @@ import type { NoteRow, Vault } from "./types.js";
  * 考古+健康诊断：不依赖访问日志，纯用 git 历史/mtime + 反链 + 层级——
  * 新库 init 后的第一分钟就能给出"你的库有多少在沉睡"的结论（冷启动 aha），
  * 老库随时可跑当体检（负向价值可视化）。
+ * 年龄口径与法医一致（contentAgeMap：rename 与批量提交不算触碰）。
  */
 
-/** 一次 git log 全仓扫描建立"文件 → 最后提交时间"映射（逐文件调 git 在大库上太慢） */
-function lastCommitMap(root: string): Map<string, string> {
-  const map = new Map<string, string>();
-  try {
-    const out = execFileSync(
-      "git",
-      ["-C", root, "log", "--pretty=format:%cI", "--name-only", "--no-renames"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 }
-    );
-    let current = "";
-    for (const line of out.split("\n")) {
-      if (/^\d{4}-\d{2}-\d{2}T/.test(line)) current = line;
-      else if (line.trim() && !map.has(line)) map.set(line, current); // log 新→旧，首见即最新
-    }
-  } catch {
-    // 非 git 仓库——全部走 mtime
-  }
-  return map;
-}
 
 export type DoctorReport = {
   total: number;
@@ -70,10 +52,10 @@ export function runDoctor(vault: Vault): DoctorReport {
   const pathToId = notePathIdMap(db);
   db.close();
 
-  const commits = lastCommitMap(root);
+  const commits = contentAgeMap(root, config.bulkCommitThreshold ?? 30);
   const now = Date.now();
   const ageDays = (n: NoteRow): number => {
-    const iso = commits.get(n.path);
+    const iso = commits?.get(n.path);
     const t = iso ? new Date(iso).getTime() : new Date(n.modified).getTime();
     return Math.floor((now - t) / 86400000);
   };

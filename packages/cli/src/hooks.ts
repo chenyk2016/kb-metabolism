@@ -11,8 +11,8 @@ import type { Vault } from "@kb/core";
 
 /**
  * hooks 是门的第二形态：把"走门"从 agent 的选择变成管道的必然。
- * 纪律：hook 永不打断用户（任何异常静默退出）、不够相关就沉默（零输出=不注入）、
- * 注入记 kb_inject 信号但法医不认（机器注入 ≠ 人在使用，不给续命）。
+ * 纪律：hook 永不打断用户（任何异常静默退出）、不够相关就沉默（判准 idf 加权，零输出=不注入）、
+ * 注入记 kb_inject 信号——第三档存活证据（injectDays，默认 30 天），效力低于读取与引用。
  */
 
 async function readStdinJson(): Promise<Record<string, unknown>> {

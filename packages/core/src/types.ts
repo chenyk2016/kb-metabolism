@@ -33,6 +33,10 @@ export type VaultConfig = {
   outputDirs?: string[];
   /** 被引用（kb_cite）的免死窗口，默认 180 天（读取是 decayDays=90） */
   citeDays?: number;
+  /** 被注入（kb_inject，hook 摘要真相关）的免死窗口，默认 30 天 */
+  injectDays?: number;
+  /** 年龄扫描：单提交涉及文件数超过此值视为批量操作（迁移/格式化），不算触碰。默认 30 */
+  bulkCommitThreshold?: number;
 };
 
 export type Vault = {

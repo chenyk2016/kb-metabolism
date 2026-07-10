@@ -4,7 +4,7 @@
 
 ```jsonc
 {
-  "version": 1,
+  "version": 2,
   "managed": ["**/*.md"],
   "exclude": ["_graveyard/**", ".kb/**", ".obsidian/**", "node_modules/**", "assets/**"],
   "captureDir": ".",
@@ -12,6 +12,8 @@
   "inboxDays": 30,
   "decayDays": 90,
   "citeDays": 180,
+  "injectDays": 30,
+  "bulkCommitThreshold": 30,
   "outputDirs": [],
   "judgment": {
     "provider": "human",
@@ -30,7 +32,7 @@
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
-| `version` | 1 | 协议版本（见[规范](/protocol/spec#版本与演进承诺)） |
+| `version` | 2 | 协议版本（见[规范](/protocol/spec#版本与演进承诺)） |
 | `managed` | `["**/*.md"]` | 受代谢管理的笔记范围（glob，相对 vault 根） |
 | `exclude` | 见上 | 完全排除：**连反链扫描都跳过**。想"不纳管但引用算信号"请收窄 `managed` 而不是加 `exclude` |
 | `captureDir` | `.` | `kb add` 写入的目录 |
@@ -38,6 +40,8 @@
 | `inboxDays` | 30 | inbox 限期 |
 | `decayDays` | 90 | 读取免死窗口 / 修改衰减窗口 |
 | `citeDays` | 180 | 引用免死窗口（被用进产出的证据效力是读取的两倍） |
+| `injectDays` | 30 | 注入免死窗口（hook 摘要真相关才记，效力最低） |
+| `bulkCommitThreshold` | 30 | 年龄扫描中，单提交文件数超过此值视为批量操作（迁移/格式化），不算触碰 |
 | `outputDirs` | `[]` | 创作目录（相对 vault 根）：其中对库内笔记的引用 = 铁证级吸收信号 |
 | `judgment.provider` | `human` | 判断力插件：`human`（交互，零依赖）/ `anthropic`（LLM 提案）/ `agent`（emit 提示词） |
 | `judgment.triageModel` | haiku | 分诊是高频低价值判断——便宜模型 |

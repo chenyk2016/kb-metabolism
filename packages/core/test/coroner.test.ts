@@ -50,7 +50,29 @@ describe("法医规则（coroner）", () => {
     ageFile(t.root, "old.md", 120);
     await runIndex(t.vault);
     appendSignal(t.root, { tool: "kb_ui", path: "old.md" });
+    const { candidates } = runCoroner(t.vault);
+    expect(candidates.map((c) => c.path)).toContain("old.md");
+  });
+
+  it("近期 kb_inject（hook 注入真相关）→ 赦免（第三档存活证据）", async () => {
+    const t = await makeVault({ "old.md": OLD_L1 });
+    cleanup = t.cleanup;
+    ageFile(t.root, "old.md", 120);
+    await runIndex(t.vault);
     appendSignal(t.root, { tool: "kb_inject", path: "old.md" });
+    const { candidates } = runCoroner(t.vault);
+    expect(candidates.map((c) => c.path)).not.toContain("old.md");
+  });
+
+  it("kb_inject 超过 30 天窗口 → 不救", async () => {
+    const t = await makeVault({ "old.md": OLD_L1 });
+    cleanup = t.cleanup;
+    ageFile(t.root, "old.md", 120);
+    await runIndex(t.vault);
+    fs.appendFileSync(
+      path.join(t.root, ".kb", "access.log.jsonl"),
+      JSON.stringify({ ts: daysAgoIso(40), tool: "kb_inject", path: "old.md" }) + "\n"
+    );
     const { candidates } = runCoroner(t.vault);
     expect(candidates.map((c) => c.path)).toContain("old.md");
   });
@@ -69,7 +91,7 @@ describe("法医规则（coroner）", () => {
     expect(candidates.map((c) => c.path)).not.toContain("old.md");
   });
 
-  it("有反链 → 赦免", async () => {
+  it("活源反链 → 赦免（新鲜日记的引用有效）", async () => {
     const t = await makeVault({
       "old.md": OLD_L1,
       "daily.md": "# 日记\n\n参考了 [[old]] 的结论。",
@@ -79,6 +101,23 @@ describe("法医规则（coroner）", () => {
     await runIndex(t.vault);
     const { candidates } = runCoroner(t.vault);
     expect(candidates.map((c) => c.path)).not.toContain("old.md");
+  });
+
+  it("死源反链不豁免——链接它的笔记自己也死了，死簇同批上榜", async () => {
+    const t = await makeVault({
+      "old.md": OLD_L1,
+      "hub.md": fm({ kb_tier: "L1", kb_use_when: "测试" }, "# 死索引\n\n收录了 [[old]]。"),
+    });
+    cleanup = t.cleanup;
+    ageFile(t.root, "old.md", 120);
+    ageFile(t.root, "hub.md", 120);
+    await runIndex(t.vault);
+    const { candidates } = runCoroner(t.vault);
+    const paths = candidates.map((c) => c.path);
+    expect(paths).toContain("old.md");
+    expect(paths).toContain("hub.md");
+    const old = candidates.find((c) => c.path === "old.md")!;
+    expect(old.reasons.join(";")).toContain("死源");
   });
 
   it("L0 永不上榜", async () => {

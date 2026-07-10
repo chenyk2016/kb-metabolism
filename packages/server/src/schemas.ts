@@ -74,6 +74,8 @@ export const ConfigPatchSchema = z
     inboxDays: z.number().int().positive().optional(),
     decayDays: z.number().int().positive().optional(),
     citeDays: z.number().int().positive().optional(),
+    injectDays: z.number().int().positive().optional(),
+    bulkCommitThreshold: z.number().int().positive().optional(),
     outputDirs: z.array(z.string()).optional(),
     judgment: z
       .object({
