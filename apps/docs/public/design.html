@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设计全景 · kb-metabolism</title>
+<style>
+  :root {
+    --bg: #f6f8f7; --surface: #ffffff; --surface-2: #eef2f0; --ink: #1c2422;
+    --muted: #5c6b66; --line: #dde4e1; --accent: #0f766e; --accent-ink: #ffffff;
+    --alive: #15803d; --alive-bg: #e8f5ec; --warn: #b45309; --warn-bg: #fdf3e3;
+    --dead: #b91c1c; --dead-bg: #fbeaea; --code-bg: #eef2f0;
+    --font-body: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101514; --surface: #1a211f; --surface-2: #212a27; --ink: #e8edea;
+      --muted: #94a49e; --line: #2b3532; --accent: #2dd4bf; --accent-ink: #06211d;
+      --alive: #4ade80; --alive-bg: #16281d; --warn: #fbbf24; --warn-bg: #2b2413;
+      --dead: #f87171; --dead-bg: #2e1a1a; --code-bg: #212a27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.75; margin: 0; font-size: 16px; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 48px 24px 96px; }
+  code { font-family: var(--font-mono); font-size: .85em; background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+  .eyebrow { font-size: 12px; letter-spacing: .18em; color: var(--accent); font-weight: 600; }
+  h1 { font-size: 30px; line-height: 1.3; margin: 10px 0 8px; text-wrap: balance; font-weight: 700; }
+  .lede { color: var(--muted); max-width: 42em; margin: 0 0 20px; }
+  section { margin-top: 64px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid var(--ink); padding-bottom: 10px; margin-bottom: 6px; }
+  .sec-head .no { font-family: var(--font-mono); font-size: 13px; color: var(--accent); font-weight: 600; }
+  h2 { font-size: 21px; margin: 0; font-weight: 700; }
+  .sec-sub { color: var(--muted); font-size: 14px; margin: 8px 0 24px; max-width: 46em; }
+  h3 { font-size: 16px; margin: 32px 0 12px; }
+  p { max-width: 44em; }
+
+  .scroller { overflow-x: auto; padding-bottom: 6px; }
+  .pipeline { min-width: 780px; }
+  .flow { display: flex; align-items: stretch; gap: 0; }
+  .stage { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 12px 10px; position: relative; }
+  .stage .tag { font-size: 11px; letter-spacing: .08em; color: var(--accent); font-weight: 600; }
+  .stage .name { font-weight: 700; font-size: 15px; margin: 2px 0; }
+  .stage .cmd { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); display: block; }
+  .stage .desc { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 6px; }
+  .arrow { display: flex; align-items: center; padding: 0 6px; color: var(--muted); font-size: 18px; flex: none; }
+  .stage.human { border-color: var(--accent); border-width: 1.5px; }
+  .stage.grave { background: var(--surface-2); border-style: dashed; }
+  .truthbar { margin-top: 14px; display: flex; gap: 10px; min-width: 780px; }
+  .truth, .derived { flex: 1; border-radius: 8px; padding: 10px 14px; font-size: 13px; }
+  .truth { background: var(--alive-bg); border: 1px solid var(--alive); }
+  .derived { background: var(--surface-2); border: 1px dashed var(--line); color: var(--muted); }
+  .truth b, .derived b { font-size: 12px; letter-spacing: .06em; display: block; margin-bottom: 2px; }
+  .truth b { color: var(--alive); }
+
+  .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 8px; }
+  .tier { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .tier .t-name { font-weight: 700; display: flex; justify-content: space-between; align-items: baseline; }
+  .tier .t-cap { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .tier .t-desc { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+  .tier.l0 { border-top: 3px solid var(--accent); }
+  .tier.l1 { border-top: 3px solid var(--alive); }
+  .tier.inbox { border-top: 3px solid var(--warn); }
+  .tier.grave2 { border-top: 3px solid var(--muted); background: var(--surface-2); }
+
+  .sig { display: grid; grid-template-columns: 120px 1fr 190px; gap: 0 14px; align-items: center; margin: 6px 0; }
+  .sig .s-name { font-family: var(--font-mono); font-size: 13px; text-align: right; }
+  .sig .s-bar { height: 26px; border-radius: 4px; display: flex; align-items: center; padding: 0 10px; font-size: 12px; font-weight: 600; white-space: nowrap; color: #fff; }
+  @media (prefers-color-scheme: dark) { .sig .s-bar { color: #06211d; } }
+  .sig .s-who { font-size: 12.5px; color: var(--muted); }
+  .bar-cite { width: 100%; background: var(--accent); }
+  .bar-read { width: 54%; background: var(--alive); }
+  .bar-inject { width: 22%; background: var(--warn); }
+  .bar-zero { width: 8%; background: var(--surface-2); border: 1px dashed var(--line); color: var(--muted) !important; font-weight: 400; }
+
+  .gate { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-top: 14px; }
+  .gate-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; color: var(--muted); letter-spacing: .04em; }
+  .conds { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .cond { border: 1.5px solid var(--dead); color: var(--dead); background: var(--dead-bg); border-radius: 6px; padding: 5px 12px; font-size: 13px; font-weight: 600; }
+  .cond small { display: block; font-weight: 400; font-size: 11px; opacity: .85; }
+  .and { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .verdict { margin-left: 4px; background: var(--dead); color: #fff; border-radius: 6px; padding: 6px 14px; font-weight: 700; font-size: 13px; }
+  .gate .note { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; }
+
+  .lesson { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 20px 22px; margin-top: 18px; }
+  .lesson-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .lesson-no { font-family: var(--font-mono); font-size: 12px; color: var(--accent); font-weight: 700; }
+  .lesson h3 { margin: 0; font-size: 16.5px; }
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  @media (max-width: 620px) { .ba { grid-template-columns: 1fr; } }
+  .ba .col { border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.65; }
+  .ba .before { background: var(--dead-bg); }
+  .ba .after { background: var(--alive-bg); }
+  .ba b.lab { font-size: 11px; letter-spacing: .12em; display: block; margin-bottom: 6px; }
+  .before b.lab { color: var(--dead); }
+  .after b.lab { color: var(--alive); }
+  .lesson p { font-size: 14px; margin: 10px 0 0; }
+
+  ol.inv { padding-left: 22px; margin: 8px 0; }
+  ol.inv li { margin: 8px 0; font-size: 14.5px; }
+  .foot { margin-top: 72px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+  .foot a, a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">KB-METABOLISM · 设计全景</div>
+  <h1>一个会遗忘的知识库是怎么运转的</h1>
+  <p class="lede">只有入口的库必然腐烂——熵增是默认方向，代谢是唯一对抗。本页是整个系统的一张图：知识的一生、决定生死的信号经济，以及协议从 v1 到 v2 时对抗式审查修掉的四个陷阱。</p>
+
+  <section>
+    <div class="sec-head"><span class="no">01</span><h2>知识的一生</h2></div>
+    <p class="sec-sub">核心比喻是代谢：给只进不出的笔记库补上两个器官——消化（资料 → 判断）与排泄（无用 → 墓地）。每篇笔记都走这条流水线：</p>
+
+    <div class="scroller">
+      <div class="pipeline">
+        <div class="flow">
+          <div class="stage">
+            <span class="tag">入口</span>
+            <div class="name">捕捉 + 入口税</div>
+            <span class="cmd">kb add / kb_add</span>
+            <div class="desc">写不出"什么时候会再用"（use_when）→ 只能进 inbox 等死；疑似重复 → 查重税拦下</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="stage">
+            <span class="tag">定层</span>
+            <div class="name">分诊</div>
+            <span class="cmd">kb triage</span>
+            <div class="desc">给每篇定 L0 / L1 / inbox，AI 可提案，定层写进 frontmatter</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="stage">
+            <span class="tag">活着</span>
+            <div class="name">使用留信号</div>
+            <span class="cmd">kb_search / kb_read / kb_cite</span>
+            <div class="desc">一切检索走"门"，每次读取/引用/注入追加进日志——<b>被使用 = 续命</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="stage">
+            <span class="tag">每周</span>
+            <div class="name">法医验尸</div>
+            <span class="cmd">kb digest</span>
+            <div class="desc">扫描全库：零信号 + 零活反链 + 长期未变更 → 列入处决名单（只提案）</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="stage human">
+            <span class="tag">判决权归人</span>
+            <div class="name">人过堂</div>
+            <span class="cmd">kb review</span>
+            <div class="desc">逐条 y 处决 / n 赦免 / p 升级。AI 永远无删除权，UI 也没有删除按钮</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="stage grave">
+            <span class="tag">可反悔</span>
+            <div class="name">墓地</div>
+            <span class="cmd">kb execute → git mv</span>
+            <div class="desc">移入 _graveyard/，git 兜底随时还魂</div>
+          </div>
+        </div>
+        <div class="truthbar">
+          <div class="truth"><b>真相层（属于你，不属于工具）</b>Markdown 文件 + git 历史 + 信号日志 access.log.jsonl——卸载工具毫发无损</div>
+          <div class="derived"><b>派生层（随时可删重建）</b>SQLite 索引 / FTS 全文 / 向量——kb index 一键重建</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>四层存活等级</h3>
+    <div class="tiers">
+      <div class="tier l0">
+        <div class="t-name">L0 核心 <span class="t-cap">≤100 条硬上限</span></div>
+        <div class="t-desc">终态交付物：每条 = 一句可复述的判断 + 何时再用。由消化（kb chew）从高频 L1 提炼，判断必须出自人口。</div>
+      </div>
+      <div class="tier l1">
+        <div class="t-name">L1 资料 <span class="t-cap">能检索到即可</span></div>
+        <div class="t-desc">AI 读的细节层。超过衰减窗口零信号 → 上处决名单。被反复读取的 L1 是"有营养的"，进消化名单。</div>
+      </div>
+      <div class="tier inbox">
+        <div class="t-name">inbox 暂存 <span class="t-cap">30 天大限</span></div>
+        <div class="t-desc">说不出用途的内容在这等待自证价值：要么升级（kb promote / 过堂 p 键），要么到期进名单。</div>
+      </div>
+      <div class="tier grave2">
+        <div class="t-name">_graveyard <span class="t-cap">git 可反悔</span></div>
+        <div class="t-desc">已掩埋。随时可真删，也随时可还魂——删除的不可逆性被 git 拆除了。</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="no">02</span><h2>信号经济：生死怎么判</h2></div>
+    <p class="sec-sub">"默认过期，使用续命。"不同的使用方式给不同长度的免死窗口——这是整个系统的货币体系（协议 v2）：</p>
+
+    <div class="sig">
+      <div class="s-name">kb_cite</div>
+      <div class="s-bar bar-cite">被引用进产出 · 免死 180 天</div>
+      <div class="s-who">agent 声明"回答里真用上了"</div>
+    </div>
+    <div class="sig">
+      <div class="s-name">kb_read</div>
+      <div class="s-bar bar-read">被读取全文 · 免死 90 天</div>
+      <div class="s-who">人或 agent 经门读全文</div>
+    </div>
+    <div class="sig">
+      <div class="s-name">kb_inject</div>
+      <div class="s-bar bar-inject">被注入且真相关 · 免死 30 天</div>
+      <div class="s-who">hooks 自动注入摘要（idf 加权 + 标题命中判准）</div>
+    </div>
+    <div class="sig">
+      <div class="s-name">search / ui</div>
+      <div class="s-bar bar-zero">不续命</div>
+      <div class="s-who">检索命中、管理台浏览——看见 ≠ 使用</div>
+    </div>
+
+    <h3>法医上榜规则（协议 v2，五条同时成立）</h3>
+    <div class="gate">
+      <div class="gate-title">以下条件同时成立（AND），才进处决名单：</div>
+      <div class="conds">
+        <div class="cond">90 天无读取<small>kb_read 信号</small></div>
+        <span class="and">且</span>
+        <div class="cond">180 天无引用<small>kb_cite 信号</small></div>
+        <span class="and">且</span>
+        <div class="cond">30 天无注入<small>kb_inject 信号</small></div>
+        <span class="and">且</span>
+        <div class="cond">0 活反链<small>只有活源发出的链接算担保</small></div>
+        <span class="and">且</span>
+        <div class="cond">&gt;90 天内容未变更<small>重命名/批量提交不算触碰</small></div>
+        <span class="and">⇒</span>
+        <div class="verdict">上榜候审</div>
+      </div>
+      <p class="note">inbox 层例外：kb_expires 过期即上榜（出路是升级）。L0 永不上榜（只能被新判断"挤位"淘汰）。上榜 ≠ 死——人不勾选就是赦免。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="no">03</span><h2>从 v1 到 v2：对抗式审查修掉的四个陷阱</h2></div>
+    <p class="sec-sub">2026-07 的一次第一性原理对抗式审查，在真实 vault 上实测出四个结构性陷阱。它们已全部修复并固化进协议 v2 与回归测试——留在这里是因为每一个都是"会遗忘的系统"的普适教训。</p>
+
+    <div class="lesson">
+      <div class="lesson-head"><span class="lesson-no">教训 1</span><h3>便利层会饿死自己的信号经济</h3></div>
+      <div class="ba">
+        <div class="col before"><b class="lab">v1 陷阱</b>
+          hooks 自动注入摘要满足了信息需求，但注入被规定为"不算使用"；会续命的走门读取靠 agent 自觉。结果：不算数的信号狂奔，算数的信号为零——<b>摘要一眼够用的最有用笔记，恰恰永远拿不到读取信号，必死。</b>
+        </div>
+        <div class="col after"><b class="lab">v2 修法</b>
+          先把注入判准做严（idf 加权覆盖 ≥50% 且标题命中，正文碰瓷与常用字都拦住），再让 kb_inject 成为第三档存活证据（30 天）。<b>顺序不能反</b>：判准不严，注入续命就是滥发免死金牌。
+        </div>
+      </div>
+    </div>
+
+    <div class="lesson">
+      <div class="lesson-head"><span class="lesson-no">教训 2</span><h3>批量操作会把全库年龄清零</h3></div>
+      <div class="ba">
+        <div class="col before"><b class="lab">v1 陷阱</b>
+          "多久没动"取自 git 最后提交。一次目录迁移、一次批量补 frontmatter，全库"最后触碰"变成昨天——体检报告 100% 活跃，法医失明 90 天。<b>系统自己生产假阴性。</b>
+        </div>
+        <div class="col after"><b class="lab">v2 修法</b>
+          年龄 = 最后一次<b>真实内容变更</b>：全仓单趟 git 扫描，纯重命名走别名链不算触碰、超过阈值的批量提交整体跳过、被过滤光的回退出生时间。体检与法医同一口径。
+        </div>
+      </div>
+      <p>顺带修掉两个"路径对不上就静默回退"的实现暗礁：中文文件名的 git 转义（quotepath）、vault 是仓库子目录时的路径前缀——任一存在，年龄机制都在无声失效。</p>
+    </div>
+
+    <div class="lesson">
+      <div class="lesson-head"><span class="lesson-no">教训 3</span><h3>反链不能等于永生</h3></div>
+      <div class="ba">
+        <div class="col before"><b class="lab">v1 陷阱</b>
+          有一条反链 = 永不上榜。教程系列互链整簇担保；一张列 300 条链接的索引页 = 发 300 张永久免死金牌；<b>死透的笔记发出的链接与活笔记等权。</b>
+        </div>
+        <div class="col after"><b class="lab">v2 修法</b>
+          反链降级为<b>活源担保</b>：只有自身活着（近期有信号或正被编辑）的笔记发出的链接才算数；创作目录（outputDirs）的引用是铁证不降级。只算一层不做图迭代——死簇互链同批上榜，被使用的索引页仍保护子节点。
+        </div>
+      </div>
+    </div>
+
+    <div class="lesson">
+      <div class="lesson-head"><span class="lesson-no">教训 4</span><h3>只造死亡通道，不造晋升通道</h3></div>
+      <div class="ba">
+        <div class="col before"><b class="lab">v1 陷阱</b>
+          协议要求 inbox"30 天内升级或进名单"，但工具链里根本没有"升级"动作——死亡零摩擦（到期自动上榜），晋升全系统摩擦最高（手改 frontmatter）。过期 inbox 赦免后层级不变，<b>下周继续上榜，钉子户吃光每周审批预算。</b>
+        </div>
+        <div class="col after"><b class="lab">v2 修法</b>
+          <code>kb promote</code> 一个动作四个入口：CLI、过堂 p 键、MCP 工具（用户明说才代办）、管理台按钮。入口税照收（必须给 use_when）、只升不降。<b>协议边界不变：晋升可以代办，死亡永远不行。</b>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="no">04</span><h2>质检：检索的自体基准</h2></div>
+    <p>检索排序即司法（注入发免死金牌、消化候选依赖读取），所以它必须可测量。<code>kb bench</code> 用入口税收上来的 <code>kb_use_when</code> 当真值——那句"什么时候会再用到"就是未来查询的预演，每条笔记天然自带测试用例，零标注、零 LLM、随库自动更新。同一套用例跑纯字面 / 纯语义 / RRF 混合三策略，胜负手清单直接回答"embedding 值不值、融合有没有帮倒忙"。</p>
+    <p><b>铁律：评测永不留信号</b>——在这个系统里，跑一遍 benchmark 等于给全库发免死金牌，所以 bench 直调纯函数、不走门，由测试断言保证。额外收获：全军覆没的用例往往不是检索的错，而是 use_when 写得太抽象——<b>基准同时审计了入口税的质量</b>。</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="no">05</span><h2>永久不变量</h2></div>
+    <ol class="inv">
+      <li>文件 + git 是真相，SQLite 里的一切可丢弃重建</li>
+      <li>访问日志是唯一不可再生数据（追加式 JSONL，随 vault 走）</li>
+      <li>检索必须走门；没有日志就没有衰减判定</li>
+      <li>AI 提案、人判决、git 兜底可反悔；删除永远不给 AI，UI 无删除按钮</li>
+      <li>零 LLM 时内核完整；判断力是插件</li>
+      <li>vault 自包含：拷走目录 = 带走整个系统；secrets 永不进 git、永不经过 API</li>
+      <li>协议有版本：约定演进必须可迁移——协议 &gt; 工具</li>
+    </ol>
+  </section>
+
+  <div class="foot">
+    延伸阅读：<a href="https://chenyk2016.github.io/kb-metabolism/protocol/spec">协议规范 v2</a> ·
+    <a href="https://chenyk2016.github.io/kb-metabolism/hooks.html">hooks 生效机制图解</a> ·
+    <a href="https://chenyk2016.github.io/kb-metabolism/guide/why">为什么需要代谢</a>
+  </div>
+</div>
+</body>
+</html>

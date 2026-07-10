@@ -13,6 +13,9 @@ hero:
       text: 为什么需要代谢
       link: /guide/why
     - theme: alt
+      text: 设计全景（一张图）
+      link: https://chenyk2016.github.io/kb-metabolism/design.html
+    - theme: alt
       text: 协议规范
       link: /protocol/spec
 
